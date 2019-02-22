@@ -1,0 +1,34 @@
+{{- $name := include "oni.name" . -}}
+{{- $fullName := include "oni.fullname" . -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $fullName }}-postinstall-create-cname"
+  labels:
+    app: {{ .Values.appName }}
+    component: {{ $name }}
+    chart: {{ template "oni.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "0"
+spec:
+  template:
+    metadata:
+      name: "{{.Release.Name}}"
+      labels:
+        component: {{ $name }}
+        release: {{ .Release.Name }}
+        job: "postinstall-create-cname"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: create-cname
+        image: "quay.ubisoft.com/dna/auto-dns:latest"
+        command: ["create-auto-dns"]
+        args: [{{ printf "%s-%s.%s" .Release.Namespace .Values.ingress.host .Values.ingress.domain | quote }}]
+        envFrom:
+        - secretRef:
+            name: "auto-dns-hook-config"

@@ -1,0 +1,24 @@
+# You can use additionnal value files to overide the main value file, by using the -f/--values flag
+# ex: helm install chart/my-chart --values production.values.yaml
+deployment:
+  replicaCount: 2
+  maxUnavailable: 0
+  maxSurge: 100%
+
+redis:
+  enabled: true
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 512Mi
+    requests:
+      cpu: 0.1
+      memory: 256Mi
+
+resources:
+  limits:
+    cpu: 1
+    memory: 512Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi

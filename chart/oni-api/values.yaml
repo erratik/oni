@@ -1,0 +1,77 @@
+appName: oni
+## Docker image this chart with deploy.
+image:
+  repository: erratik/oni # Override with repository from CI environment
+  tag: latest # Override with value from CI environment
+  pullPolicy: Always
+
+## Parameters for the app's deployment.
+deployment:
+  # Number of pods the deployment will maintain at all times.
+  replicaCount: 1
+  # Path against which k8s will perform http healthchecks. Remove to disable healthchecks.
+  healthCheckPath: /status
+  # Maximum, rounded-down, percentage of the replicaCount.
+  # Defines the number of old pods that can be shutdowned by k8s during a rolling update.
+  maxUnavailable: "25%"
+  # Maximum, rounded-up, percentage of the replicaCount.
+  # Defines how many extra pods k8s can launch during a rolling update.
+  maxSurge: "25%"
+  ## exemple: with replicaCount: 3, maxUnavailable: 25% and maxSurge: 25%.
+  ## maxUnavailable: 25% * 3 => 1 pod can be unavailale
+  ## maxSurge: 25% * 3 => 1 extra pod can be created during an update (on top of the existing pods)
+  ## ==> during an update, k8s will destroy one of the three existing pods, spin 2 new pods, and perform the rolling update from there.
+  # Define environment variables here as key value pairs. They will be available in your containers.
+  environment: 
+    NODE_ENV: dev
+    # REDIS_HOST: oni-redis-cache
+    # MINIO_HOST: minio-minio.production.svc.cluster.local
+
+service:
+  # Type of service in K8S. If unsure, Leave ClusterIP as a default.
+  type: ClusterIP
+  # The port your container needs to expose.
+  port: 4529
+
+ingress:
+  # Setting enabled: false will result in the service not being registered with traefik.
+  # Disable ingress if you want to expose a NODEPORT service.
+  enabled: true
+  ## The release's namespace, host and domain together define the routing rule of the ingress.
+  ## For web app, you must use host-based routing.
+  ## API can use both host-based and path-based routing.
+  ## For exemple, deploying to the staging namespace will produce the following rule: 'https://staging-<CHARTNAME>.datawhore.erratik.ca/'.
+  # This will be used as a prefix in the dns name of your service.
+  # If you specify 'production', no prefix will be prepend, eg: 'https://<CHARTNAME>.datawhore.erratik.ca'
+  # This will be the base host of your ingress rule. When using path-based routing, you can replace your chartname with a well
+  # known host, eg: api, and specify path: /<CHARTNAME>. It will produce the following rule: 'https://test-api.datawhore.erratik.ca/<CHARTNAME>'.
+  host: oni
+  # The base domain for the ingress rule hostname. This should not change.
+  domain: datawhore.erratik.ca
+  ## To define a path-based routing rule. Leave commented for host-based routing.
+  # path: /<CHARTNAME>
+
+  # Those are ingress annotations to configure ingress.
+  # See https://docs.traefik.io/configuration/backends/kubernetes/#annotations for a list of available values.
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+  # Specify a certificate to use for tls. A matching secret in the same k8s namespace must exist.
+  # tls:
+  #   - secretName: dna-cert
+
+
+## Defines default resource limits and reservations for each container in the deployment.
+resources:
+  limits:
+    cpu: 100m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+## This defines placement contraints and policies. See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,53 @@
+{{- $name := include "oni.name" . -}}
+{{- $fullName := include "oni.fullname" . -}}
+{{- if .Values.enabled }}
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    app: {{ .Values.global.app }}
+    component: {{ $name }}
+    chart: {{ template "oni.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 300
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  selector:
+    matchLabels:
+      app: {{ .Values.global.app }}
+      component: {{ $name }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.global.app }}
+        component: {{ $name }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: "redis"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- end }}

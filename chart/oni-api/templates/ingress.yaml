@@ -1,0 +1,40 @@
+{{- if .Values.ingress.enabled -}}
+{{- $name := include "oni.name" . -}}
+{{- $fullName := include "oni.fullname" . -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    app: {{ .Values.appName }}
+    component: {{ $name }}
+    chart: {{ template "oni.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- with .Values.ingress.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+{{- if .Values.ingress.tls }}
+  tls:
+  {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+  {{- end }}
+{{- end }}
+  rules:
+    - host: {{ printf "%s-%s.%s" .Release.Namespace .Values.ingress.host .Values.ingress.domain | trimPrefix "production-" | quote }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: {{ $fullName }}
+              servicePort: http
+    - host: {{ cat ((list .Release.Namespace "dna" .Values.ingress.host) | join "-" | trimPrefix "production-") ".ubisoft.org" | nospace | quote }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: {{ $fullName }}
+              servicePort: http
+{{- end }}

@@ -1,0 +1,50 @@
+version: "3.7"
+
+volumes:
+  mongo:
+  redis:
+
+networks:
+  # middleware:
+  #   driver: bridge
+  mongo_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24
+
+services:
+  deps:
+    container_name: depends_on
+    image: erratik/kusanagi-deps
+    build:
+      args:
+        NODE_ENV: dev
+      context: ./
+
+  # MongoDB and document data store
+  init:
+    container_name: init
+    image: erratik/kusanagi-init
+    restart: always
+    networks:
+      mongo_net:
+        ipv4_address: 172.16.0.2
+    ports:
+      - "27017:27017"
+    command: ./run.sh
+
+  # Distributed in-memory cache
+  redis:
+    container_name: redis
+    image: redis:4.0.6-alpine
+    read_only: true
+    networks:
+      - mongo_net
+    depends_on:
+      - mongo_restore
+    links:
+      - mongo_restore
+    volumes:
+      - redis:/data
+    user: redis

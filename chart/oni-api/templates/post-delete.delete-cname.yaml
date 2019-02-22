@@ -1,0 +1,35 @@
+{{- $name := include "oni.name" . -}}
+{{- $fullName := include "oni.fullname" . -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $fullName }}-postdelete-delete-cname"
+  labels:
+    app: {{ .Values.appName }}
+    component: {{ $name }}
+    chart: {{ template "oni.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "0"
+spec:
+  template:
+    metadata:
+      name: "{{.Release.Name}}"
+      labels:
+        component: {{ $name }}
+        release: {{ .Release.Name }}
+        job: "postdelete-delete-cname"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: delete-cname
+        image: "quay.ubisoft.com/dna/auto-dns:latest"
+        command: ["delete-auto-dns"]
+        args: 
+        args: [{{ printf "%s-%s.%s" .Release.Namespace .Values.ingress.host .Values.ingress.domain | trimPrefix "production-" | quote }}]
+        envFrom:
+        - secretRef:
+            name: "auto-dns-hook-config"

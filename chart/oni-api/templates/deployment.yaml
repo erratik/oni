@@ -1,0 +1,84 @@
+{{- $fullName := include "oni.fullname" . -}}
+{{- if .Values.deployment }}
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    app: {{ .Values.appName }}
+    component: {{ template "oni.name" . }}
+    chart: {{ template "oni.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.deployment.replicaCount | default 1 }}
+  progressDeadlineSeconds: 300
+  strategy:
+    rollingUpdate:
+      maxUnavailable: {{ .Values.deployment.maxUnavailable | default "25%" }}
+      maxSurge: {{ .Values.deployment.maxSurge | default "25%" }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+      component: {{ template "oni.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+        component: {{ template "oni.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.deployment.healthCheckPath }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.deployment.healthCheckPath | quote }}
+              port: http
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deployment.healthCheckPath | quote }}
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 2
+        {{- end }}
+          ports:
+            - name: http
+              containerPort: {{required "A valid .Values.service.port is required!" .Values.service.port }}
+              protocol: TCP
+          env:
+          {{- range $key, $val := .Values.deployment.environment }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+          {{- end }}
+          volumeMounts:
+          {{- with .Values.deployment.configMountPath }}
+            - name: config-volume
+              mountPath: {{ . | quote }}
+          {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+      {{- if .Values.deployment.configMountPath }}
+        - name: config-volume
+          configMap:
+            name: {{ $fullName }}
+      {{- end }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- end }}

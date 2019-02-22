@@ -1,0 +1,151 @@
+## Set default image, imageTag, and imagePullPolicy. mode is used to indicate the
+##
+image:
+  repository: minio/minio
+  tag: RELEASE.2018-11-17T01-23-48Z
+  pullPolicy: IfNotPresent
+
+## Set default image, imageTag, and imagePullPolicy for the `mc` (the minio
+## client used to create a default bucket).
+##
+mcImage:
+  repository: minio/mc
+  tag: RELEASE.2018-10-31T22-15-44Z
+  pullPolicy: IfNotPresent
+
+## minio server mode, i.e. standalone or distributed.
+## Distributed Minio ref: https://docs.minio.io/docs/distributed-minio-quickstart-guide
+##
+mode: standalone
+
+## Update strategy for Deployments
+DeploymentUpdate:
+  type: RollingUpdate
+  maxUnavailable: 0
+  maxSurge: 100%
+
+## Set default accesskey, secretkey, Minio config file path, volume mount path and
+## number of nodes (only used for Minio distributed mode)
+## Distributed Minio ref: https://docs.minio.io/docs/distributed-minio-quickstart-guide
+##
+existingSecret: ""
+accessKey: "dna_admin"
+secretKey: "password"
+configPath: "/root/.minio/"
+mountPath: "/export"
+
+## Enable persistence using Persistent Volume Claims
+## ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+##
+persistence:
+  enabled: true
+
+  ## A manually managed Persistent Volume and Claim
+  ## Requires persistence.enabled: true
+  ## If defined, PVC must be created manually before volume will be bound
+  # existingClaim:
+
+  ## minio data Persistent Volume Storage Class
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  ## Storage class of PV to bind. By default it looks for standard storage class.
+  ## If the PV uses a different storage class, specify that here.
+  # storageClass: standard
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+## Expose the Minio service to be accessed from outside the cluster (LoadBalancer service).
+## or access it from within the cluster (ClusterIP service). Set the service type and the port to serve it.
+## ref: http://kubernetes.io/docs/user-guide/services/
+##
+
+service:
+  type: ClusterIP
+  port: 9000
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+  path: /
+  hosts:
+    - minio.datawhore.erratik.ca
+  tls:
+    - secretName: dna-cert
+
+## Configure resource requests and limits
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+##
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    memory: 512Mi
+    cpu: 500m
+
+## https://docs.minio.io/docs/minio-bucket-notification-guide
+## https://github.com/minio/minio/blob/master/docs/config
+minioConfig:
+  region: "us-east-1"
+  browser: "on"
+  domain: ""
+  worm: "off"
+  storageClass:
+    standardStorageClass: ""
+    reducedRedundancyStorageClass: ""
+  cache:
+    drives: []
+    expiry: 90
+    maxuse: 80
+    exclude: []
+  aqmp:
+    enable: false
+    url: ""
+    exchange: ""
+    routingKey: ""
+    exchangeType: ""
+    deliveryMode: 0
+    mandatory: false
+    immediate: false
+    durable: false
+    internal: false
+    noWait: false
+    autoDeleted: false
+  nats:
+    enable: false
+    address: ""
+    subject: ""
+    username: ""
+    password: ""
+    token: ""
+    secure: false
+    pingInterval: 0
+    enableStreaming: false
+    clusterID: ""
+    clientID: ""
+    async: false
+    maxPubAcksInflight: 0
+  elasticsearch:
+    enable: false
+    format: "namespace"
+    url: ""
+    index: ""
+  redis:
+    enable: false
+    format: "namespace"
+    address: ""
+    password: ""
+    key: ""
+  webhook:
+    enable: false
+    endpoint: ""
+networkPolicy:
+  enabled: false
+  allowExternal: true
