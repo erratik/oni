@@ -1,14 +1,14 @@
 image: erratik/ci-k8s
 
 stages:
-  - setup
+  # - setup
   - build
   - gcloud
   - deploy
 
 include:
-  - local: "/.ci/cache.yml"
-  - local: "/.ci/setup.yml"
+  # - local: "/.ci/cache.yml"
+  # - local: "/.ci/setup.yml"
   - local: "/.ci/build-image.yml"
   - local: "/.ci/gcloud-auth.yml"
 
