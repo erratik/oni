@@ -29,18 +29,18 @@ export class RedisCacheService implements ICacheService {
         retry_strategy: (options: any) => {
 
           if (options.error && options.error.code === 'ECONNREFUSED') {
-            this.logger.log('CacheService', `Redis Connection Failed - Server Refused`);
+            this.logger.log('CacheService', 'Redis Connection Failed - Server Refused');
             return new Error('The server refused the connection');
           }
           if (options.total_retry_time > 1000 * 60 * 60) {
-            this.logger.log('CacheService', `Redis Connection Failed - Retry Time exhausted`);
+            this.logger.log('CacheService', 'Redis Connection Failed - Retry Time exhausted');
             return new Error('Retry time exhausted');
           }
           if (options.attempt > 10) {
-            this.logger.log('CacheService', `Redis Connection Failed - No More Retry.`);
+            this.logger.log('CacheService', 'Redis Connection Failed - No More Retry.');
             return undefined;
           }
-          this.logger.log('CacheService', `Redis Connection Failed - Retrying.`);
+          this.logger.log('CacheService', 'Redis Connection Failed - Retrying.');
           return Math.min(options.attempt * 100, 3000);
         },
       });

@@ -1,0 +1,15 @@
+test:
+  stage: test
+  except:
+    refs:
+      - schedules
+      - tags
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[ci-release\]/
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+    policy: pull
+  script:
+    - yarn test --coverage

@@ -16,12 +16,12 @@ async function bootstrap() {
   });
 
   const options = new DocumentBuilder()
-    .setTitle('Zelda API')
-    .setDescription('DNA Asset Server')
+    .setTitle('oni')
+    .setDescription('kusanagi api backend')
     .setVersion(app.select(VersionModule).get(VersionService).version)
     .setSchemes(app.select(ConfigModule).get(ConfigService).config.swaggerScheme)
     .setBasePath(app.select(ConfigModule).get(ConfigService).swaggerBasePath)
-    .addTag('v1')
+    // .addTag('v1')
     .addTag('status')
     .addTag('version')
     .build();

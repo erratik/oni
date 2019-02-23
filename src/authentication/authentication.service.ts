@@ -7,19 +7,21 @@ import { RedisCacheService } from './../shared/cache/redis-cache.service';
 
 @Injectable()
 export class AuthenticationService {
-
   private readonly s2sSessionInfoCacheKey: string = 's2sSessionInfoCacheKey';
   private readonly s2sSessionInfoCacheExpirationInSeconds: number = 3 * 60 * 60; // 3 Hours
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(InjectionTokens.CacheService) private readonly redisCacheService: RedisCacheService) { }
+    @Inject(InjectionTokens.CacheService)
+    private readonly redisCacheService: RedisCacheService,
+  ) {}
 
   async getS2SSessionInfo(): Promise<UbiServiceS2SSessionData> {
     return this.redisCacheService.getItemOrElse<UbiServiceS2SSessionData>(
       this.s2sSessionInfoCacheKey,
       this.s2sSessionInfoCacheExpirationInSeconds,
-      () => this.fetchS2SSessionInfo());
+      () => this.fetchS2SSessionInfo(),
+    );
   }
 
   fetchS2SSessionInfo(): Promise<UbiServiceS2SSessionData> {
@@ -36,13 +38,17 @@ export class AuthenticationService {
   }
 
   getAuthorizationHeader(): string {
-    const secretKey: string = process.env.NODE_ENV && process.env.NODE_ENV === 'prod' ?
-      this.configService.config.prodSecretKey : this.configService.config.secretKey;
+    const secretKey: string =
+      process.env.NODE_ENV && process.env.NODE_ENV === 'prod'
+        ? this.configService.config.prodSecretKey
+        : this.configService.config.secretKey;
 
     const buffer: Buffer = new Buffer(
+      // tslint:disable-next-line:prefer-template
       this.configService.config.ubiAppId + ':' + secretKey,
     );
 
+    // tslint:disable-next-line:prefer-template
     return 'Basic ' + buffer.toString('base64');
   }
 }

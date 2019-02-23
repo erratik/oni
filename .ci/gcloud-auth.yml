@@ -1,0 +1,63 @@
+.gcloud_setup: &gcloud_setup
+  stage: gcloud
+  image: erratik/ci-k8s
+  variables:
+    ONI_ENVIRONMENT: review
+  before_script:
+    - echo $GCLOUD_AUTH | base64 -d  > ./gcloud-auth.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=$PWD/gcloud-auth.json
+    - gcloud auth activate-service-account ${SERVICE_ACCOUNT} --key-file ./gcloud-auth.json
+    - export PROJECT_ID=$PROJECT
+    - gcloud config set project ${PROJECT_ID}
+    - export NAMESPACE_SLUG=$(echo "$CI_PROJECT_NAMESPACE" | sed -r 's/[^a-zA-Z0-9]+/-/g')
+    - gcloud container clusters get-credentials ${PROJECT_ID} --zone ${ZONE} --project $PROJECT_ID
+    - echo $CI_PROJECT_PATH_SLUG
+    - echo $CI_PROJECT_NAMESPACE
+    # - kubectl create namespace ${ONI_ENVIRONMENT} --dry-run -o yaml | kubectl apply -f -
+    # - kubectl patch deployment ${CI_COMMIT_REF_SLUG}-${CI_PROJECT_PATH_SLUG} -n ${NAMESPACE_SLUG} -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
+  environment:
+    name: $CI_COMMIT_REF_SLUG
+    url: https://${CI_COMMIT_REF_SLUG}-${CI_PROJECT_PATH_SLUG}.${REVIEW_DOMAIN}
+    variables:
+      - PROJECT_ID =~ $PROJECT
+
+build_gcloud_image:
+  stage: gcloud
+  image: erratik/ci-k8s
+  <<: *gcloud_setup
+  script:
+    - gcloud auth configure-docker
+    - docker push gcr.io/$PROJECT/oni:${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}}
+    - echo $PROJECT_ID
+  environment:
+    name: $CI_COMMIT_REF_SLUG
+    url: https://${CI_COMMIT_REF_SLUG}-${CI_PROJECT_PATH_SLUG}.${REVIEW_DOMAIN}
+    on_stop: stop_gcloud
+  except:
+    refs:
+      - tags
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[ci-release\]/
+
+stop_gcloud:
+  stage: deploy
+  image: erratik/ci-k8s
+  script:
+    - echo $GCLOUD_AUTH | base64 -d  > ./gcloud-auth.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=$PWD/gcloud-auth.json
+    - gcloud auth activate-service-account ${SERVICE_ACCOUNT} --key-file ./gcloud-auth.json
+    - gcloud config set project ${GOOGLE_REVIEW_PROJECT}
+    - export VARIANT=$(gcloud projects describe ${GOOGLE_REVIEW_PROJECT} --format "value(labels.variant)")
+    - export NAMESPACE_SLUG=$(echo "$CI_PROJECT_NAMESPACE" | sed -r 's/[^a-zA-Z0-9]+/-/g')
+    - gcloud container clusters get-credentials ${GOOGLE_REVIEW_PROJECT} --zone ${ZONE} --project $GOOGLE_REVIEW_PROJECT
+  variables:
+    GIT_STRATEGY: none
+  when: manual
+  except:
+    refs:
+      - tags
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[ci-release\]/
+  environment:
+    name: $CI_COMMIT_REF_SLUG
+    action: stop

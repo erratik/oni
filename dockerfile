@@ -1,4 +1,4 @@
-FROM node:9.6.1-alpine
+FROM erratik/ci-k8s
 
 COPY  . /dist
 WORKDIR /dist

@@ -47,7 +47,7 @@ ingress:
   # known host, eg: api, and specify path: /<CHARTNAME>. It will produce the following rule: 'https://test-api.datawhore.erratik.ca/<CHARTNAME>'.
   host: oni
   # The base domain for the ingress rule hostname. This should not change.
-  domain: datawhore.erratik.ca
+  domain: 35.188.111.53
   ## To define a path-based routing rule. Leave commented for host-based routing.
   # path: /<CHARTNAME>
 

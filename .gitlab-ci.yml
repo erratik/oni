@@ -1,127 +1,19 @@
-######## GLOBAL
+image: erratik/ci-k8s
 
-image: gitlab-ncsa.ubisoft.org:4567/dna/web/docker/docker-web-ci:0.0.6
 stages:
-  - validate
+  - setup
   - build
-  - deploy_k8s
-  - schedule
+  - gcloud
+  - deploy
 
-######## LINT + TEST
+include:
+  - local: "/.ci/cache.yml"
+  - local: "/.ci/setup.yml"
+  - local: "/.ci/build-image.yml"
+  - local: "/.ci/gcloud-auth.yml"
 
-validate:
-  stage: validate
-  tags:
-    - build
-  script:
-    - npm i
-    - npm run lint
-    - npm run test
-  cache:
-    key: $CI_BUILD_REF_NAME
-    untracked: true
-    paths:
-      - node_modules/
-
-######## BUILDS
+#
 
 build:
   stage: build
-  tags:
-    - build
-  script:
-    - npm i
-    - sed -i -e "s/GITLAB_VERSION = ''/GITLAB_VERSION = '${EXTRA_VERSION}'/g" src/config/config.ts
-    - npm run build
-    - docker build -t erratik/oni:${CI_COMMIT_TAG:-${CI_COMMIT_SHA:0:8}} .
-    - docker login -u="dna+gitlab" -p="${QUAY_TOKEN}" quay.ubisoft.com
-    - docker push quay.ubisoft.com/dna/oni:${CI_COMMIT_TAG:-${CI_COMMIT_SHA:0:8}}
-  cache:
-    key: $CI_BUILD_REF_NAME
-    untracked: true
-    paths:
-      - node_modules/
-    policy: pull
-
-### K8S ###
-.deploy_test_k8s_setup: &deploy_test_k8s_setup
-  stage: deploy_k8s
-  image: gitlab-ncsa.ubisoft.org:4567/dna/web/docker/docker-web-ci:1.1.1
-  before_script:
-    - kubectl config set-cluster test --server=${UKS_TEST_CLUSTER}
-    - kubectl config set-credentials "${UKS_USER}" --token="${UKS_TOKEN}"
-    - kubectl config set-context test --cluster=test --user="${UKS_USER}"
-    - kubectl config use-context test
-    - helm init --client-only
-
-.deploy_prod_k8s_setup: &deploy_prod_k8s_setup
-  stage: deploy_k8s
-  image: gitlab-ncsa.ubisoft.org:4567/dna/web/docker/docker-web-ci:1.1.1
-  before_script:
-    - kubectl config set-cluster prod --server=${UKS_PROD_CLUSTER}
-    - kubectl config set-credentials "${UKS_USER}" --token="${UKS_TOKEN}"
-    - kubectl config set-context prod --cluster=prod --user="${UKS_USER}"
-    - kubectl config use-context prod
-    - helm init --client-only
-
-.stop_k8s: &stop_k8s
-  script: "helm delete oni-$CI_ENVIRONMENT_SLUG --purge"
-  when: manual
-
-deploy_test:
-  stage: deploy_k8s
-  image: gitlab-ncsa.ubisoft.org:4567/dna/web/docker/docker-web-ci:1.1.1
-  <<: *deploy_test_k8s_setup
-  script:
-    - |
-      helm upgrade oni-${CI_ENVIRONMENT_SLUG} chart/oni --force --install --wait --namespace ${CI_ENVIRONMENT_NAME} \
-      --set-string image.tag=${CI_COMMIT_TAG:-${CI_COMMIT_SHA:0:8}} \
-      --set-string deployment.environment.REDIS_HOST=oni-redis-cache-${CI_ENVIRONMENT_SLUG}  \
-      --set-string ingress.environment=${CI_ENVIRONMENT_NAME} \
-      --set-string ingress.host=${CI_COMMIT_REF_SLUG}-oni
-  environment:
-    name: "test"
-    url: "https://test-oni.datawhore.erratik.ca/"
-  only:
-    - dev
-  when: manual
-
-.deploy_k8s: &deploy_k8s
-  script:
-    - |
-      helm upgrade oni-${CI_ENVIRONMENT_SLUG} chart/oni --install --wait --namespace ${CI_ENVIRONMENT_NAME} \
-      --values chart/oni/production.values.yaml \
-      --set-string image.tag=${CI_COMMIT_TAG:-${CI_COMMIT_SHA:0:8}} \
-      --set-string deployment.environment.NODE_ENV=${CI_ENVIRONMENT_NAME},deployment.environment.VERSION=${CI_COMMIT_TAG:-${CI_COMMIT_SHA:0:8}}
-
-deploy_prod_k8s:
-  <<: *deploy_prod_k8s_setup
-  <<: *deploy_k8s
-  environment:
-    name: "production"
-    url: "https://oni.datawhore.erratik.ca/"
-  only:
-    - tags
-
-# SCHEDULER
-run:on-schedule:
-  <<: *deploy_prod_k8s_setup
-  <<: *deploy_k8s
-  stage: schedule
-  environment:
-    name: "production"
-    url: "https://oni.datawhore.erratik.ca/"
-  only:
-    - master
-
-# MINIO SERVER
-minio:
-  stage: deploy_k8s
-  <<: *deploy_prod_k8s_setup
-  script:
-    - |
-      helm upgrade minio-${CI_ENVIRONMENT_SLUG} stable/minio --install --wait --namespace production \
-      --values chart/minio/production.values.yaml
-  environment:
-    name: "minio"
-  when: manual
+  script: echo "toto"

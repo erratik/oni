@@ -1,0 +1,12 @@
+variables:
+  GOOGLE_REVIEW_PROJECT: geisha
+  # GOOGLE_STAGING_PROJECT: bbk-staging
+  # GOOGLE_PRODUCTION_PROJECT: bbk-production
+  SERVICE_ACCOUNT: gitlab-ci@geisha.iam.gserviceaccount.com
+  # CYPRESS_CACHE_FOLDER: "$CI_PROJECT_DIR/cache/Cypress"
+  # From the docs: https://docs.gitlab.com/ee/ci/yaml/#git-strategy
+  #   „fetch is faster as it re-uses the project workspace (falling back
+  #   to clone if it doesn't exist). git clean is used to undo any changes
+  #   made by the last job, and git fetch is used to retrieve commits
+  #   made since the last job ran.“
+  GIT_STRATEGY: fetch

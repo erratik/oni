@@ -1,0 +1,17 @@
+lint:
+  stage: validate
+  except:
+    refs:
+      - schedules
+      - tags
+      - schedules
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[ci-release\]/
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+    policy: pull
+  script:
+    - yarn lint
+  manual: true
