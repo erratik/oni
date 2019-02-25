@@ -1,8 +1,11 @@
-node_modules/**
-dist/**
-tmp/**
+
 npm-debug.log
+.history
 .idea/**
 .vscode/**
 coverage/**
 data/**
+dist
+tmp
+coverage
+node_modules

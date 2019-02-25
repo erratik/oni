@@ -1,10 +1,7 @@
 {
-  "watch": [
-    "src"
-  ],
+  "watch": ["src/repository", "src/**/*.service.ts", "src/**/*.constants.ts", "src/shared", "src/user", "src/**/*.constants.ts"],
   "ext": "ts",
-  "ignore": [
-    "src/**/*.spec.ts"
-  ],
-  "exec": "ts-node -r tsconfig-paths/register src/main.ts"
+  "ignore": ["src/**/*.spec.ts"],
+  "exec": "npm run build && docker-compose up oni",
+  "delay": 1000
 }

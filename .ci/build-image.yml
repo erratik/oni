@@ -15,3 +15,5 @@ build_image:
       - $CI_COMMIT_MESSAGE =~ /\[ci-release\]/
   tags:
     - docker
+  cache:
+    key: $CI_COMMIT_REF_SLUG

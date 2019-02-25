@@ -1,5 +1,7 @@
 export enum InjectionTokens {
   CacheService = 'CacheServiceToken',
+  MongoDbConnection = 'MongoDbConnection',
+  UserModel = 'UserModelToken',
 }
 
 export enum UbiServicesTicketScheme {
@@ -11,4 +13,9 @@ export enum AuthenticationHeaders {
   Authorization = 'authorization',
   UbiSessionId = 'ubi-sessionid',
   UbiAppId = 'ubi-appid',
+}
+
+export enum ResponseMessages {
+  Success = 'Success',
+  FailureDelete = 'Failed to delete resource',
 }

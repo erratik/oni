@@ -31,7 +31,7 @@ service:
   # Type of service in K8S. If unsure, Leave ClusterIP as a default.
   type: ClusterIP
   # The port your container needs to expose.
-  port: 4529
+  port: 10011
 
 ingress:
   # Setting enabled: false will result in the service not being registered with traefik.

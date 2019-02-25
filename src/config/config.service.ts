@@ -7,6 +7,7 @@ import { config } from './config';
 export class ConfigService {
   private env: string = process.env.NODE_ENV || 'dev';
   public swaggerBasePath: string = process.env.SWAGGER_BASE_PATH || '/';
+  isUnitTestMode: any;
 
   constructor() {}
 

@@ -1,17 +1,10 @@
 import { AuthorizationService } from './authorization.service';
-import {
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  MiddlewareFunction,
-  NestMiddleware,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { ErrorCode } from './../shared/models/error.model';
+import { ForbiddenException, Injectable, InternalServerErrorException, MiddlewareFunction, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import { ErrorCode } from '../shared/models/error.model';
 
 @Injectable()
 export class AuthorizationMiddleware implements NestMiddleware {
-  constructor(private readonly authorizationService: AuthorizationService) { }
+  constructor(private readonly authorizationService: AuthorizationService) {}
 
   async resolve(): Promise<MiddlewareFunction> {
     return this.middlewareFunction;
@@ -36,5 +29,5 @@ export class AuthorizationMiddleware implements NestMiddleware {
         throw new InternalServerErrorException(err.message || err);
       }
     }
-  }
+  };
 }

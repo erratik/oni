@@ -27,8 +27,8 @@ gcloud_image:
   <<: *gcloud_setup
   script:
     - echo $PROJECT_ID
-    - gcloud docker -- pull gcr.io/$PROJECT/oni
-    - gcloud docker -- push gcr.io/$PROJECT/oni:${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}}
+    # - gcloud docker -- pull gcr.io/$PROJECT/oni
+    # - gcloud docker -- push gcr.io/$PROJECT/oni:${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}}
   environment:
     name: $CI_COMMIT_REF_SLUG
     url: https://${CI_COMMIT_REF_SLUG}-${CI_PROJECT_PATH_SLUG}.${REVIEW_DOMAIN}
