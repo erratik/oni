@@ -1,10 +1,11 @@
 import * as request from 'superagent';
 import { Injectable, Inject } from '@nestjs/common';
-import { InjectionTokens, AuthenticationHeaders, UbiServicesTicketScheme } from './../app.constants';
+import { AuthenticationHeaders, UbiServicesTicketScheme } from '../auth.constants';
 import { ConfigService } from './../config/config.service';
 import { ICacheService } from './../shared/cache/cache.service';
 import { LoggerService } from './../shared/services/logger.service';
 import { ErrorCode, ErrorModel } from '../shared/models/error.model';
+import { InjectionTokens } from '../app.constants';
 
 @Injectable()
 export class AuthorizationService {
@@ -15,7 +16,7 @@ export class AuthorizationService {
     @Inject(InjectionTokens.CacheService)
     private readonly cacheService: ICacheService,
     private logger: LoggerService,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {}
 
   public buildCacheKey(req: any): string {
@@ -49,12 +50,12 @@ export class AuthorizationService {
             this.getHeaderValue(req.headers, AuthenticationHeaders.UbiAppId),
             this.getHeaderValue(req.headers, AuthenticationHeaders.UbiSessionId),
             req.headers.authorization.substr(req.headers.authorization.indexOf('=') + 1),
-            req.headers.authorization.split(' ')[0].toLowerCase(),
+            req.headers.authorization.split(' ')[0].toLowerCase()
           );
           this.cacheService.setItem(
             cacheKey,
             isAuthorized ? this.authorizedCacheDurationInSeconds : this.unauthorizedTicketCacheDurationInSeconds,
-            isAuthorized.toString(),
+            isAuthorized.toString()
           );
         } catch (error) {
           return Promise.reject(error);

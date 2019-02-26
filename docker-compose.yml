@@ -12,20 +12,34 @@ networks:
         - subnet: 172.16.0.0/24
 
 services:
+  oni_redis:
+    container_name: oni_redis
+    image: redis
+    networks:
+      - mongo_net
+    volumes:
+      - redis:/data
+    ports:
+      - "6379:6379"
+
   # MongoDB and document data store
   init:
     container_name: init
     image: erratik/kusanagi-init
+    environment:
+      - USEIP=172.16.0.3
     restart: always
     networks:
       mongo_net:
-        ipv4_address: 172.16.0.2
+        ipv4_address: 172.16.0.3
     ports:
       - "27017:27017"
     command: ./run.sh
+    logging:
+      driver: none
 
-  mongo_restore:
-    container_name: mongo_restore
+  mongo:
+    container_name: mongo
     image: mongo
     depends_on:
       - init
@@ -33,23 +47,10 @@ services:
       mongo_net:
     volumes:
       - mongo:/data
-      - ./data/heroku_10tzj082:/data/heroku_10tzj082
-    command: mongorestore --host=172.16.0.2 --db datawhore -u erratik -p kaya80ate ./data/heroku_10tzj082
-
-  oni_redis:
-    container_name: oni_redis
-    image: redis
-    networks:
-      - mongo_net
-    depends_on:
-      - mongo_restore
-    links:
-      - mongo_restore
-    volumes:
-      - redis:/data
-    ports:
-      - "6379:6379"
-    restart: always
+      - ./data/datawhore:/data/datawhore
+    command: mongorestore --host=172.16.0.3 --db datawhore -u erratik -p kaya80ate ./data/datawhore
+    logging:
+      driver: none
 
   oni:
     image: node:9.6.1-alpine
@@ -57,6 +58,7 @@ services:
     working_dir: /app
     depends_on:
       - oni_redis
+      - mongo
     networks:
       mongo_net:
     environment:
@@ -64,7 +66,7 @@ services:
       - CORS_ORIGIN=http://localhost:10011, http://datawhore.erratik.ca:10011
       - NODE_ENV=dev
       - REDIS_URL=redis://redis:6379/0
-      - MONGO_URI=mongodb://erratik:kaya80ate@172.16.0.2:27017/datawhore
+      - MONGO_URI=mongodb://erratik:kaya80ate@172.16.0.3:27017/datawhore
       - SESSION_SECRET=fiddle-farter
       - PORT=10011
     ports:
@@ -76,19 +78,4 @@ services:
       - $PWD/node_modules:/app/node_modules
       - $PWD/package.json:/app/package.json
     command: node --inspect=0.0.0.0:9229 /app/dist/main.js
-  # minio:
-  #   image: minio/minio
-  #   volumes:
-  #     - minio:/data
-  #     - minio-config:/root/.minio
-  #   environment:
-  #     - MINIO_ACCESS_KEY=dna_admin
-  #     - MINIO_SECRET_KEY=password
-  #   ports:
-  #     - "9000:9000" # you can override it via docker-compose.override.yml
-  #   command: server /data
-# volumes:
-#   minio:
-#   minio-config:
-
-# docker cp local_zelda-api:/../public
+    restart: always

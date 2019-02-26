@@ -1,6 +1,6 @@
-import { InjectionTokens } from './../../app.constants';
 import { ConfigService } from './../../config/config.service';
 import { RedisCacheService } from './redis-cache.service';
+import { InjectionTokens } from '../../app.constants';
 
 export const cacheProviders = {
   provide: InjectionTokens.CacheService,

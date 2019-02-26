@@ -2,6 +2,5 @@
   "watch": ["src/repository", "src/**/*.service.ts", "src/**/*.constants.ts", "src/shared", "src/user", "src/**/*.constants.ts"],
   "ext": "ts",
   "ignore": ["src/**/*.spec.ts"],
-  "exec": "npm run build && docker-compose up oni",
-  "delay": 1000
+  "exec": "npm run build && docker-compose restart oni"
 }

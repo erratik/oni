@@ -1,6 +1,6 @@
-import { InjectionTokens } from '../../app.constants';
 import * as mongoose from 'mongoose';
 import { ConfigService } from '../../config/config.service';
+import { InjectionTokens } from '../../app.constants';
 
 const configService: ConfigService = new ConfigService();
 

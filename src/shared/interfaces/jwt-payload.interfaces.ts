@@ -3,7 +3,7 @@ export interface JwtPayload {
 }
 
 export interface TokenResponse {
-  expiresIn: number;
   accessToken: string;
-  notBefore?: number;
+  expiry?: Date;
+  scope?: string;
 }
