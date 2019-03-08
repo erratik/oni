@@ -7,7 +7,7 @@ export interface BaseDBModel {
 }
 
 export interface AuthorizationDBModel {
-  accessToken: string;
+  token: string;
   expiry: Date;
   scope: string;
 }
@@ -15,6 +15,8 @@ export interface AuthorizationDBModel {
 export interface UserDBModel {
   username: string;
   password: string;
+  firstName: string;
+  lastName: string;
   email: string;
   authorization: Array<AuthorizationDBModel>;
 }
