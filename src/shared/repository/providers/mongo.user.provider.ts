@@ -1,7 +1,7 @@
 import { Connection } from 'mongoose';
-import { InjectionTokens } from '../../app.constants';
-import userSchema from '../../repository/schemas/user.schema';
-import { UserModel } from '../../user/interfaces/user.models';
+import { InjectionTokens } from '../../../app.constants';
+import userSchema from '../../../user/interfaces/user.schema';
+import { UserModel } from '../../../user/interfaces/user.models';
 
 export const userModelMongoDbProvider = [
   {

@@ -10,4 +10,9 @@ export namespace Projections {
     lastModified: 1,
     username: 1,
   };
+
+  export const Space: { [key: string]: number } = {
+    lastModified: 1,
+    username: 1,
+  };
 }

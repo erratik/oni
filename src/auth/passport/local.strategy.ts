@@ -6,7 +6,7 @@ import { PassportLocalModel } from 'mongoose';
 
 import { InjectionTokens } from '../../app.constants';
 import { InjectModel } from '@nestjs/mongoose';
-import { IUser } from '../../repository/schemas/user.schema';
+import { IUser } from '../../user/interfaces/user.schema';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {

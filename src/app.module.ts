@@ -6,16 +6,20 @@ import { UserModule } from './user/user.module';
 import { LoggerService } from './shared/services/logger.service';
 import { UserService } from './user/user.service';
 import { ConfigService } from './config/config.service';
-import { mongoDatabaseProviders } from './repository/providers/mongo.database.provider';
-import { userModelMongoDbProvider } from './repository/providers/mongo.user.provider';
+import { mongoDatabaseProviders } from './shared/repository/providers/mongo.database.provider';
+import { userModelMongoDbProvider } from './shared/repository/providers/mongo.user.provider';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
-import { bodyValidatorMiddleware } from './auth/body-validator.middleware';
 import { AuthController } from './auth/auth.controller';
 import { UserController } from './user/user.controller';
+import { userValidatorMiddleware } from './shared/middlewares/user-validator.middleware';
+import { tokenValidatorMiddleware } from './shared/middlewares/token-validator.middleware';
+import { SpaceController } from './space/space.controller';
+import { SpaceModule } from './space/space.module';
+import { entityValidatorMiddleware } from './shared/middlewares/entity-validator.middleware';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule],
+  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SpaceModule],
   providers: [
     ...mongoDatabaseProviders,
     ...userModelMongoDbProvider,
@@ -27,6 +31,8 @@ import { UserController } from './user/user.controller';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(bodyValidatorMiddleware).forRoutes(UserController, AuthController);
+    consumer.apply(userValidatorMiddleware).forRoutes(AuthController);
+    consumer.apply(tokenValidatorMiddleware).forRoutes(UserController);
+    consumer.apply(entityValidatorMiddleware).forRoutes(SpaceController);
   }
 }

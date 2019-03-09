@@ -1,18 +1,18 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { LoggerService } from '../shared/services/logger.service';
 import { InjectionTokens } from '../app.constants';
-import { IUser } from './interfaces/user.schema';
-import { IUsersService } from './interfaces/iusers.service';
+import { ISpace } from './interfaces/space.schema';
+import { ISpacesService } from './interfaces/ispaces.service';
 import { PassportLocalModel } from 'mongoose';
-import { CreateUserDto } from './dto/createUser.dto';
+import { SpaceDto } from './dto/space.dto';
 import { debug } from 'util';
 import { Projections } from '../shared/repository/projections.constants';
 
 @Injectable()
-export class UserService implements IUsersService {
-  public itemType: string = 'User';
+export class SpaceService implements ISpacesService {
+  public itemType: string = 'Space';
   public constructor(
-    @Inject(InjectionTokens.UserModel) private readonly userModel: PassportLocalModel<IUser>,
+    @Inject(InjectionTokens.SpaceModel) private readonly spaceModel: PassportLocalModel<ISpace>,
     public logger: LoggerService
   ) {}
 
@@ -21,16 +21,16 @@ export class UserService implements IUsersService {
   //                                                                                                      //
 
   /**
-   * @param clauses query fields { username: "erratik" }
+   * @param clauses query fields { name: "erratik" }
    * @param sorter sort fields { label: 1 }
    * @param projection projectfields { createdBy: 1 }
    * @param offset skip //? not sure about this yet
    * @param limit limit //? not sure about this yet
    */
-  public buildQuery(clauses: {}, sorter?: {}, projection?: {}, offset?: number, limit?: number): Promise<Array<IUser>> {
+  public buildQuery(clauses: {}, sorter?: {}, projection?: {}): Promise<Array<ISpace>> {
     let query: any;
 
-    query = this.userModel.find(clauses).sort(sorter);
+    query = this.spaceModel.find(clauses).sort(sorter);
     this.logger.log('[BaseRepository]', `buildQuery > > > ${JSON.stringify(clauses)}`);
 
     query.select(projection);
@@ -56,82 +56,82 @@ export class UserService implements IUsersService {
   //? Create & Update
   //                                                                                                      //
 
-  public async create(createUserDto: CreateUserDto): Promise<IUser> {
-    const createdUser = new this.userModel(createUserDto);
-    return await createdUser.save();
+  public async create(spaceDto: SpaceDto): Promise<ISpace> {
+    const createdSpace = new this.spaceModel(spaceDto);
+    return await createdSpace.save();
   }
 
-  public async update(user: IUser): Promise<IUser> {
-    this.logger.log(`[${this.itemType}Repository]`, `Updating ${this.itemType}: ${user.username}`);
-    return this.userModel
-      .findOneAndUpdate({ username: user.username }, user, { upsert: true, new: true, runValidators: true })
-      .then(user => ({ ...user.toObject() }))
-      .catch(() => debug('user not found'));
+  public async update(spaceDto: SpaceDto): Promise<ISpace> {
+    this.logger.log(`[${this.itemType}Repository]`, `Updating ${this.itemType}: ${spaceDto.name}`);
+    return this.spaceModel
+      .findOneAndUpdate({ name: spaceDto.name }, spaceDto, { upsert: true, new: true, runValidators: true })
+      .then((space: ISpace) => ({ ...space.toObject() }))
+      .catch(() => debug('space not found'));
   }
 
   //                                                                                                      //
   //? Retrieve
   //                                                                                                      //
 
-  public async findAll(): Promise<IUser[]> {
-    return await this.userModel.find().exec();
+  public async findAll(): Promise<ISpace[]> {
+    return await this.spaceModel.find().exec();
   }
 
-  public async findById(id: string): Promise<IUser> {
+  public async findById(id: string): Promise<ISpace> {
     this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with id: ${id}`);
-    const user = await this.userModel.findById(id);
-    return user ? { ...user.toObject() } : null;
+    const space = await this.spaceModel.findById(id);
+    return space ? { ...space.toObject() } : null;
   }
 
-  public async getUserByName(username: string): Promise<IUser | null> {
-    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with username: ${username}`);
-    const user = await this.userModel.findOne({ username });
-    return user ? { ...user.toObject() } : null;
+  public async getSpaceByName(name: string): Promise<ISpace | null> {
+    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with name: ${name}`);
+    const space = await this.spaceModel.findOne({ name });
+    return space ? { ...space.toObject() } : null;
   }
 
-  public async getUser(clauses: {}, projection = Projections.User): Promise<IUser> {
+  public async getSpace(clauses: {}, projection = Projections.Space): Promise<ISpace> {
     this.logger.log(
       `[${this.itemType}Repository]`,
       `Fetching ${this.itemType}s with clauses: ${JSON.stringify(clauses)}`
     );
-    const user = await this.userModel.findOne(clauses, projection);
-    return user ? { ...user.toObject() } : null;
+    const space = await this.spaceModel.findOne(clauses, projection);
+    return space ? { ...space.toObject() } : null;
   }
 
-  public async getUsers(clauses: {}, sorter?: {}, projection = Projections.User): Promise<Array<IUser>> {
+  public async getSpaces(clauses: {}, sorter?: {}, projection = Projections.Space): Promise<Array<ISpace>> {
     this.logger.log(
       `[${this.itemType}Repository]`,
       `Fetching ${this.itemType}s with clauses: ${JSON.stringify(clauses)}`
     );
-    const users = await this.buildQuery(clauses, sorter, projection);
-    return users.map(user => ({ ...user.toObject() }));
+    const spaces = await this.buildQuery(clauses, sorter, projection);
+    return spaces.map(space => ({ ...space.toObject() }));
   }
 
-  public async search(username: any): Promise<Array<IUser>> {
+  public async search(name: any): Promise<Array<ISpace>> {
     this.logger.log(
       `[${this.itemType}Repository]`,
-      `Fetching ${this.itemType}s with usernames that match: ${JSON.stringify(username)}`
+      `Fetching ${this.itemType}s with names that match: ${JSON.stringify(name)}`
     );
-    const users = await this.userModel
+    const spaces = await this.spaceModel
       .find({
-        username: { $regex: new RegExp(username, 'i') },
+        name: { $regex: new RegExp(name, 'i') },
       })
-      .select(Projections.User)
-      .sort({ username: 1 });
-    return users.map(user => ({ ...user.toObject() }));
+      .select(Projections.Space)
+      .sort({ name: 1 });
+    return spaces.map(space => ({ ...space.toObject() }));
   }
 
   //                                                                                                      //
   //! Delete
   //                                                                                                      //
 
-  async delete(id: string): Promise<string> {
+  async delete(spaceDto: SpaceDto): Promise<string> {
     try {
-      await this.userModel.findByIdAndRemove(id).exec();
-      return 'The user has been deleted';
+      await this.spaceModel.findOneAndDelete({ name: spaceDto.name }).exec();
+      return `${spaceDto.name} space has been deleted`;
     } catch (err) {
       debug(err);
-      return 'The user could not be deleted';
+      return `${spaceDto.name} space could not be deleted`;
     }
   }
 }

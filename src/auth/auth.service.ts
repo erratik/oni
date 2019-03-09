@@ -6,7 +6,7 @@ import { PassportLocalModel } from 'mongoose';
 import { debug } from 'console';
 import { RegistrationStatus, JwtPayload } from './interfaces/auth.interfaces';
 import { InjectionTokens, Attributes } from '../app.constants';
-import { IUser } from '../repository/schemas/user.schema';
+import { IUser } from '../user/interfaces/user.schema';
 import { CreateUserDto } from '../user/dto/createUser.dto';
 import { UserService } from '../user/user.service';
 import { ConfigService } from '../config/config.service';

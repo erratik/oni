@@ -1,4 +1,4 @@
-import { IUser } from '../../repository/schemas/user.schema';
+import { IUser } from './user.schema';
 
 export interface IUsersService {
   findAll(): Promise<IUser[]>;

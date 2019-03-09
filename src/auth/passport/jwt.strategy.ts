@@ -1,9 +1,7 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../auth.service';
 import { PassportStrategy } from '@nestjs/passport';
-import { Request } from 'express';
-import { Injectable, UnauthorizedException, HttpStatus } from '@nestjs/common';
-import { JwtPayload } from '../interfaces/auth.interfaces';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,13 +12,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(req: any, payload: any, done: Function) {
+  async validate(req: any, done: Function) {
     const user = await this.authService.validateUser(req);
     if (!user) {
       return done(new UnauthorizedException(), false);
     }
     return user;
-    // done(null, user);
-    // return done(HttpStatus.OK, user, { message: 'Logged in Successfully' });
   }
 }

@@ -10,4 +10,10 @@ export enum InjectionTokens {
   CacheService = 'CacheServiceToken',
   MongoDbConnection = 'MongoDbConnection',
   UserModel = 'UserModelToken',
+  SpaceModel = 'SpaceModelToken',
+}
+
+export enum Paths {
+  SpaceUpdate = 'spaces/update',
+  SpaceCreate = 'spaces/create',
 }

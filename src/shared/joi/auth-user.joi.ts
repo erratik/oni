@@ -10,10 +10,5 @@ export const authUserSchema: ObjectSchema = object({
 });
 
 export const authTokenSchema: ObjectSchema = object({
-  authorization: string()
-    // .replace('Bearer ', '')
-    .required(),
-  host: string(),
-  accept: string(),
-  'user-agent': string(),
-});
+  authorization: string().required(),
+}).options({ stripUnknown: true });
