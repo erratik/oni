@@ -1,20 +1,27 @@
 import * as jwt from 'jsonwebtoken';
+import * as moment from 'moment';
 import { Inject, Injectable } from '@nestjs/common';
 import { PassportLocalModel } from 'mongoose';
 
 import { debug } from 'console';
 import { RegistrationStatus, JwtPayload } from './interfaces/auth.interfaces';
-import { InjectionTokens } from '../app.constants';
+import { InjectionTokens, Attributes } from '../app.constants';
 import { IUser } from '../repository/schemas/user.schema';
 import { CreateUserDto } from '../user/dto/createUser.dto';
 import { UserService } from '../user/user.service';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(InjectionTokens.UserModel) private userModel: PassportLocalModel<IUser>,
-    private userService: UserService // readonly userService: UsersService
+    private userService: UserService,
+    private configService: ConfigService
   ) {}
+
+  public async validateUser(payload: JwtPayload): Promise<any> {
+    return await this.userService.findById(payload.id);
+  }
 
   public async register(user: CreateUserDto): Promise<RegistrationStatus> {
     const userFields = {
@@ -36,56 +43,38 @@ export class AuthService {
     return status;
   }
 
-  public createToken(user) {
+  public async createToken(user: IUser) {
     console.log('get the expiration');
-    const expiresIn = 3600;
-    console.log('sign the token');
-    console.log(user);
+    const expiresIn = this.configService.config.jwtTokenDuration;
 
+    console.log('sign the token');
     const token = jwt.sign(
       { id: user.id, email: user.username, firstname: user.firstName, lastname: user.lastName },
       'ILovePokemon',
       { expiresIn }
     );
-    console.log('return the token');
-    console.log(token);
-    return {
-      expiresIn,
-      token,
-    };
+
+    const expiry = moment()
+      .add(expiresIn, 'seconds')
+      .toDate();
+
+    const datawhoreToken = { token, expiry, scope: Attributes.AppName };
+
+    const authToUpdate = !!user.authorization ? user.authorization.find(e => e.scope === Attributes.AppName) : false;
+    if (authToUpdate) {
+      user.authorization.map(auth => {
+        if (auth.scope === Attributes.AppName) {
+          auth.token = token;
+          auth.expiry = expiry;
+        }
+        return auth;
+      });
+    } else if (!authToUpdate && !!user.authorization) {
+      user.authorization.push(datawhoreToken);
+    } else {
+      user.authorization = [datawhoreToken];
+    }
+
+    return await this.userService.update(user);
   }
-
-  async validateUser(payload: JwtPayload): Promise<any> {
-    return await this.userService.findById(payload.id);
-  }
-
-  // async validateUser(user: JwtPayload, tokenResponse?: IToken, scope: Attributes | Sources = Attributes.AppName): Promise<IUser> {
-  //   this.logger.log('[UserService]', `created JWT signed for ${user.email}`);
-
-  //   const retrievedUser = await this.userService.getUser({ email: user.email });
-
-  //   tokenResponse.scope = scope;
-  //   tokenResponse.expiry = moment()
-  //     .add(this.configService.config.jwtTokenDuration, 'seconds')
-  //     .toDate();
-
-  //   // todo: build a helper for this, don't wanna repeat this ever!
-  //   const authToUpdate = !!retrievedUser.authorization ? retrievedUser.authorization.find(e => e.scope === Attributes.AppName) : false;
-  //   if (authToUpdate) {
-  //     retrievedUser.authorization.map(auth => {
-  //       if (auth.scope === Attributes.AppName) {
-  //         auth.token = tokenResponse.token;
-  //         auth.expiry = tokenResponse.expiry;
-  //       }
-  //       return auth;
-  //     });
-  //   } else if (!authToUpdate && !!retrievedUser.authorization) {
-  //     retrievedUser.authorization.push(tokenResponse as AuthorizationDBModel);
-  //   } else {
-  //     retrievedUser.authorization = [tokenResponse as AuthorizationDBModel];
-  //   }
-
-  //   const updatedUser: IUser = await this.userService.updateUser(retrievedUser);
-  //   return updatedUser;
-  // }
 }

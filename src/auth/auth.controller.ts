@@ -1,4 +1,4 @@
-import { Controller, UseGuards, HttpStatus, Response, Post, Body } from '@nestjs/common';
+import { Controller, UseGuards, HttpStatus, Response, Post, Body, Get, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiUseTags, ApiResponse } from '@nestjs/swagger';
@@ -23,18 +23,17 @@ export class AuthController {
   }
 
   @Post('login')
-  @UseGuards(AuthGuard())
+  @UseGuards(AuthGuard('local'))
   async login(@Response() res, @Body() login: LoginUserDto) {
-    return await this.userService.findOne({ username: login.username }).then(user => {
+    return await this.userService.getUser({ username: login.username }).then(async user => {
       if (!user) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           message: 'User Not Found',
         });
       } else {
         console.log('start getting the token');
-        const token = this.authService.createToken(user);
-        console.log(token);
-        return res.status(HttpStatus.OK).json(token);
+        const updatedUser = await this.authService.createToken(user);
+        return res.status(HttpStatus.OK).json(updatedUser);
       }
     });
   }

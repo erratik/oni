@@ -2,9 +2,9 @@ import { IUser } from '../../repository/schemas/user.schema';
 
 export interface IUsersService {
   findAll(): Promise<IUser[]>;
-  findById(ID: number): Promise<IUser | null>;
-  findOne(options: object): Promise<IUser | null>;
+  findById(id: string): Promise<IUser | null>;
+  findOne?(options: object): Promise<IUser | null>;
   create(user: IUser): Promise<IUser>;
-  update(ID: number, newValue: IUser): Promise<IUser | null>;
-  delete(ID: number): Promise<string>;
+  update(user: IUser): Promise<IUser | null>;
+  delete?(id: string): Promise<string>;
 }

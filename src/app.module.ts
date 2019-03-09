@@ -10,6 +10,9 @@ import { mongoDatabaseProviders } from './repository/providers/mongo.database.pr
 import { userModelMongoDbProvider } from './repository/providers/mongo.user.provider';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
+import { bodyValidatorMiddleware } from './auth/body-validator.middleware';
+import { AuthController } from './auth/auth.controller';
+import { UserController } from './user/user.controller';
 
 @Module({
   imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule],
@@ -23,5 +26,7 @@ import { AuthService } from './auth/auth.service';
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {}
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(bodyValidatorMiddleware).forRoutes(UserController, AuthController);
+  }
 }

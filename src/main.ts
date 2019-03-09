@@ -15,7 +15,9 @@ function bootstrapLogger(app: INestApplication & INestExpressApplication) {
   const errorLogFormat: LogFormats = LogFormats.ErrorLogFormat;
 
   logger.token('responseBody', (_, res: any) => res._data);
-  logger.token('ip', req => ((req.headers['x-forwarded-for'] as string) || (req.connection.remoteAddress as string)).replace(/^.*:/, ''));
+  logger.token('ip', req =>
+    ((req.headers['x-forwarded-for'] as string) || (req.connection.remoteAddress as string)).replace(/^.*:/, '')
+  );
 
   app.use(logger(logFormat, {
     skip: (_, res) => res.statusCode >= 400,
@@ -43,6 +45,7 @@ async function bootstrap() {
     .setBasePath(app.select(ConfigModule).get(ConfigService).swaggerBasePath)
     .addTag('v1')
     .addTag('auth')
+    .addTag('users')
     .addTag('status')
     .addTag('version')
     .build();

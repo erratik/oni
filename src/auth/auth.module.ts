@@ -9,6 +9,8 @@ import { userModelMongoDbProvider } from '../repository/providers/mongo.user.pro
 import { UserService } from '../user/user.service';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
+import { LocalStrategy } from './passport/local.strategy';
+import { JwtStrategy } from './passport/jwt.strategy';
 
 @Module({
   imports: [
@@ -28,8 +30,8 @@ import { JwtModule } from '@nestjs/jwt';
     AuthService,
     LoggerService,
     UserService,
-    // JwtStrategy,
-    // LocalStrategy,
+    JwtStrategy,
+    LocalStrategy,
   ],
   exports: [
     // ...mongoDatabaseProviders,

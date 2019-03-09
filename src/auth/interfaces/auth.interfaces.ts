@@ -1,6 +1,9 @@
 export interface JwtPayload {
-  id?: number;
+  id: string;
   email: string;
+  firstname: string;
+  iat: number;
+  exp: number;
 }
 
 export interface RegistrationStatus {
@@ -16,7 +19,6 @@ export interface IToken {
 
 export interface AuthorizationDBModel {
   token: string;
-  accessToken: string;
   expiry: Date;
   scope: string;
 }

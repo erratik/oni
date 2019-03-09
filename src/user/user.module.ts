@@ -7,20 +7,23 @@ import { SharedServicesModule } from '../shared/shared-services.module';
 import { userModelMongoDbProvider } from '../repository/providers/mongo.user.provider';
 import { mongoDatabaseProviders } from '../repository/providers/mongo.database.provider';
 import { AuthService } from '../auth/auth.service';
+import { LoggerService } from '../shared/services/logger.service';
+import { JwtStrategy } from '../auth/passport/jwt.strategy';
+import { LocalStrategy } from '../auth/passport/local.strategy';
 
 @Module({
-  imports: [
-    SharedServicesModule,
-    PassportModule.register({ defaultStrategy: 'local' }),
-    JwtModule.register({
-      secretOrPrivateKey: process.env.SESSION_SECRET,
-      signOptions: {
-        expiresIn: 3600,
-      },
-    }),
-  ],
+  imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' })],
   controllers: [UserController],
-  providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, AuthService],
+  providers: [
+    ...mongoDatabaseProviders,
+    ...userModelMongoDbProvider,
+    UserService,
+    AuthService,
+    LoggerService,
+    UserService,
+    JwtStrategy,
+    LocalStrategy,
+  ],
   exports: [UserService],
 })
 export class UserModule {}

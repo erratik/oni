@@ -1,57 +1,38 @@
-import { Controller, Get, UseGuards, Post, HttpException, HttpStatus, Param, Body, Res, Query } from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, Response, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
-import { ApiUseTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
-import { LoggerService } from '../shared/services/logger.service';
-import { ConfigService } from '../config/config.service';
-import { AuthService } from '../auth/auth.service';
+import { ApiUseTags } from '@nestjs/swagger';
 
-import { IToken } from '../auth/interfaces/auth.interfaces';
-import { IUser } from '../repository/schemas/user.schema';
-
-@ApiUseTags('user')
-@Controller('user')
+@ApiUseTags('users')
+@Controller('users')
 export class UserController {
-  constructor(
-    private readonly userService: UserService,
-    private authService: AuthService,
-    private logger: LoggerService,
-    private configService: ConfigService
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
-  @Get('token/:user')
-  @ApiResponse({ status: HttpStatus.OK, description: 'Generated JWT Token' })
-  @ApiOperation({
-    title: 'Request a JWT for a given user, hardcoded dev@erratik.ca',
-    description: `Replies with signed JWT payload`,
-  })
-  async createToken(@Param() user: IUser): Promise<IToken> {
-    this.logger.log('[UserController]', `Requesting user token`);
-    return await this.authService.createToken(user);
+  @Get('')
+  @UseGuards(AuthGuard('jwt'))
+  async getUsers(@Response() res) {
+    return await this.userService.findAll().then(users => {
+      if (!users) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: 'No users',
+        });
+      } else {
+        return res.status(HttpStatus.OK).json(users);
+      }
+    });
   }
 
-  // @Post('user/validation')
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: 'Attempts to validate user with credentials (email, accessToken)',
-  // })
-  // @ApiOperation({
-  //   title: 'Validate user with credentials',
-  //   description: `Replies with ...`,
-  // })
-  // async validateUser(@Body() user: UserDTO): Promise<any> {
-  //   // if (!user.email) {
-  //   //   throw new HttpException('No user provided!', HttpStatus.INTERNAL_SERVER_ERROR);
-  //   // } else if (!user.accessToken) {
-  //   //   throw new HttpException('No access token provided!', HttpStatus.INTERNAL_SERVER_ERROR);
-  //   // } else {
-  //   //   this.logger.log('[UserController]', `Requesting validation for user email account: ${user.email} with provided accessToken`);
-  //   //   const validatedUser = await this.userService.validateUser({ email: user.email }, { accessToken: user.accessToken });
-  //   //   return { ...validatedUser };
-  //   //   // .catch(err => {
-  //   //   //   this.logger.log('![UserController]', `something went with validateUser: ${JSON.stringify(err)}`);
-  //   //   //   throw new HttpException(err, HttpStatus.INTERNAL_SERVER_ERROR);
-  //   //   // });
-  //   // }
-  // }
+  @Get(':username')
+  @UseGuards(AuthGuard('jwt'))
+  async getUser(@Param() username, @Response() res) {
+    return await this.userService.getUserByName(username).then(users => {
+      if (!users) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: `No user found for ${username}`,
+        });
+      } else {
+        return res.status(HttpStatus.OK).json(users);
+      }
+    });
+  }
 }

@@ -16,7 +16,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   ) {
     super(
       {
-        usernameField: 'email',
+        usernameField: 'username',
         passwordField: 'password',
       },
       userModel.authenticate()
