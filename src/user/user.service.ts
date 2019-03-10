@@ -80,7 +80,7 @@ export class UserService implements IUsersService {
   public async findById(id: string): Promise<IUser> {
     this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with id: ${id}`);
     const user = await this.userModel.findById(id);
-    return user ? { ...user.toObject() } : null;
+    return user ? { id: user._id, ...user.toObject() } : null;
   }
 
   public async getUserByName(username: string): Promise<IUser | null> {
@@ -105,6 +105,12 @@ export class UserService implements IUsersService {
     );
     const users = await this.buildQuery(clauses, sorter, projection);
     return users.map(user => ({ ...user.toObject() }));
+  }
+
+  public async getUserByToken(token: string): Promise<IUser> {
+    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType}s with token value: ${token}`);
+    const user = await this.userModel.findOne({ authorization: { $elemMatch: { token } } });
+    return user ? { ...user.toObject() } : null;
   }
 
   public async search(username: any): Promise<Array<IUser>> {

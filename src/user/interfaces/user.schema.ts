@@ -28,7 +28,7 @@ export interface IUser extends Document {
   readonly lastName: string;
   readonly email: string;
   readonly password: string;
-  username: string;
+  readonly username: string;
   authorization: Array<AuthorizationDBModel>;
 }
 

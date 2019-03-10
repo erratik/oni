@@ -1,7 +1,7 @@
 import { MiddlewareFunction, BadRequestException } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { validate } from 'joi';
-import { spaceEntitySchema } from '../joi/entities.joi';
+import { spaceEntitySchema, settingsEntitySchema, credentialsEntitySchema } from '../joi/entities.joi';
 import { authTokenSchema } from '../../shared/joi/auth-user.joi';
 import { Paths } from '../../app.constants';
 
@@ -10,8 +10,20 @@ export const entityValidatorMiddleware: MiddlewareFunction = async (req: Request
   const path = req.path.split('/v1/')[1];
   const isUnhandledPath = true;
   switch (path) {
+    case Paths.SpaceDelete:
+    case Paths.SpaceCreate:
     case Paths.SpaceUpdate: {
       entitySchema = spaceEntitySchema;
+      break;
+    }
+    case Paths.SettingsDelete:
+    case Paths.SettingsCreate:
+    case Paths.SettingsUpdate: {
+      entitySchema = settingsEntitySchema;
+      break;
+    }
+    case Paths.CredentialsDelete: {
+      entitySchema = credentialsEntitySchema;
       break;
     }
     default:

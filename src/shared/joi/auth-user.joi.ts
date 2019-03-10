@@ -11,4 +11,9 @@ export const authUserSchema: ObjectSchema = object({
 
 export const authTokenSchema: ObjectSchema = object({
   authorization: string().required(),
-}).options({ stripUnknown: true });
+  host: string(),
+  accept: string(),
+  'user-agent': string(),
+  'content-type': string(),
+  'content-length': string(),
+});

@@ -1,34 +1,30 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
-import { SpaceController } from './space.controller';
-import { SpaceService } from './space.service';
+import { SettingsController } from './settings.controller';
+import { SettingsService } from './settings.service';
 import { SharedServicesModule } from '../shared/shared-services.module';
 import { AuthService } from '../auth/auth.service';
 import { LoggerService } from '../shared/services/logger.service';
 import { JwtStrategy } from '../auth/passport/jwt.strategy';
 import { mongoDatabaseProviders } from '../shared/repository/providers/mongo.database.provider';
-import { spaceModelMongoDbProvider } from '../shared/repository/providers/mongo.spaces.provider';
+import { settingsModelMongoDbProvider } from '../shared/repository/providers/mongo.settings.provider';
 import { userModelMongoDbProvider } from '../shared/repository/providers/mongo.user.provider';
 import { UserService } from '../user/user.service';
-import { SettingsService } from '../settings/settings.service';
-import { settingsModelMongoDbProvider } from '../shared/repository/providers/mongo.settings.provider';
 
 @Module({
   imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' })],
-  controllers: [SpaceController],
+  controllers: [SettingsController],
   providers: [
     ...mongoDatabaseProviders,
-    ...spaceModelMongoDbProvider,
-    ...userModelMongoDbProvider,
     ...settingsModelMongoDbProvider,
-    SpaceService,
+    ...userModelMongoDbProvider,
+    SettingsService,
     AuthService,
     UserService,
-    SettingsService,
     LoggerService,
-    SpaceService,
+    SettingsService,
     JwtStrategy,
   ],
-  exports: [SpaceService],
+  exports: [SettingsService],
 })
-export class SpaceModule {}
+export class SettingsModule {}

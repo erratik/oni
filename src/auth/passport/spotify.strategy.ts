@@ -1,10 +1,11 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ExtractJwt } from 'passport-jwt';
 import { AuthService } from '../auth.service';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Strategy as SpotifyStrategy } from 'passport-spotify';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class SpotifyPassportStrategy extends PassportStrategy(SpotifyStrategy) {
   constructor(private readonly authService: AuthService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -15,7 +16,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(req: any, done: Function) {
     const user = await this.authService.validateUser(req);
     if (!user) {
-      console.log('not authorized');
       return done(new UnauthorizedException(), false);
     }
     return user;

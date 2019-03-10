@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PassportLocalModel } from 'mongoose';
 
 import { debug } from 'console';
-import { RegistrationStatus, JwtPayload } from './interfaces/auth.interfaces';
+import { RegistrationStatus, UserPayload } from './interfaces/auth.interfaces';
 import { InjectionTokens, Attributes } from '../app.constants';
 import { IUser } from '../user/interfaces/user.schema';
 import { CreateUserDto } from '../user/dto/createUser.dto';
@@ -19,8 +19,8 @@ export class AuthService {
     private configService: ConfigService
   ) {}
 
-  public async validateUser(payload: JwtPayload): Promise<any> {
-    return await this.userService.findById(payload.id);
+  public async validateUser(payload: UserPayload): Promise<any> {
+    return await this.userService.getUser({ email: payload.email });
   }
 
   public async register(user: CreateUserDto): Promise<RegistrationStatus> {
@@ -49,7 +49,7 @@ export class AuthService {
 
     console.log('sign the token');
     const token = jwt.sign(
-      { id: user.id, email: user.username, firstname: user.firstName, lastname: user.lastName },
+      { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName },
       'ILovePokemon',
       { expiresIn }
     );

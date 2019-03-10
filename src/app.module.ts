@@ -17,9 +17,11 @@ import { tokenValidatorMiddleware } from './shared/middlewares/token-validator.m
 import { SpaceController } from './space/space.controller';
 import { SpaceModule } from './space/space.module';
 import { entityValidatorMiddleware } from './shared/middlewares/entity-validator.middleware';
+import { SettingsModule } from './settings/settings.module';
+import { SettingsController } from './settings/settings.controller';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SpaceModule],
+  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SpaceModule, SettingsModule],
   providers: [
     ...mongoDatabaseProviders,
     ...userModelMongoDbProvider,
@@ -33,6 +35,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(userValidatorMiddleware).forRoutes(AuthController);
     consumer.apply(tokenValidatorMiddleware).forRoutes(UserController);
-    consumer.apply(entityValidatorMiddleware).forRoutes(SpaceController);
+    consumer.apply(entityValidatorMiddleware).forRoutes(SpaceController, SettingsController);
   }
 }

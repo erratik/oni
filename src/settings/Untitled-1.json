@@ -1,0 +1,11 @@
+{
+  "space": "spotify",
+  "owner": "admin",
+  "credentials": [
+    {
+      "clientId": "clientId",
+      "clientSecret": "clientSecret",
+      "callbackUrl": "callbackUrl"
+    }
+  ]
+}
