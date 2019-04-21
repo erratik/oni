@@ -19,11 +19,11 @@ import { SpaceModule } from './space/space.module';
 import { entityValidatorMiddleware } from './shared/middlewares/entity-validator.middleware';
 import { SettingsModule } from './settings/settings.module';
 import { SettingsController } from './settings/settings.controller';
-import { spaceCredentialsMiddleware } from './shared/middlewares/space-credentials.middleware';
 import { TokenModule } from './token/token.module';
+import { DropModule } from './drop/drop.module';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule],
+  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule, DropModule],
   providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, LoggerService, ConfigService, AuthService],
 })
 export class AppModule implements NestModule {

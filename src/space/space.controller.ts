@@ -8,7 +8,7 @@ import { ConfigService } from '../config/config.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { IConfig } from '../config/config';
 import { SpaceRequestService } from './space-request.service';
-import { QueryRequestSources } from './space.constant';
+import { QueryRequestSources } from './space.constants';
 
 @ApiUseTags('spaces')
 @Controller('v1/spaces')
@@ -109,17 +109,9 @@ export class SpaceController {
     }
 
     const settings = await this.settingsService.getSettingsBySpace(owner, param.space);
-    const options = {
-      client_id: settings.credentials.clientId,
-      client_secret: settings.credentials.clientSecret,
-      grant_type: 'authorization_code',
-      redirect_uri: `${config.baseUrl}/spaces/callback/${param.space}`,
-      code,
-    };
-    const url = this.spaceRequestService.composeUrl(stateStr.split('-')[2], options);
 
     await this.spaceRequestService
-      .getToken(settings, options)
+      .getToken(settings, code)
       .then(token => res.status(HttpStatus.OK).json({ message: `Successfully saved ${param.space} token info for ${owner}`, response: token }))
       .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
   }
@@ -128,33 +120,14 @@ export class SpaceController {
   @UseGuards(AuthGuard('jwt'))
   async spaceRequest(@Param() param, @Query() query, @Response() res, @Req() req) {
     const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
-    if (!settings) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${param.space} settings for found for ${req.user.username}` });
-    }
-
-    const token = settings.authorization.info;
-    if (!token) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${param.space} token for ${req.user.username}` });
-    }
-
-    const url = settings.baseUrl + query.endpoint;
-    const isTokenExpired = new Date().valueOf() >= token.updatedAt.valueOf() + token.expires_in * 1000;
-
-    if (isTokenExpired && !!token.refresh_token) {
-      return await this.spaceRequestService.refreshToken(settings, url).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
-    } else {
-      const receivedData = this.spaceRequestService.getData(settings, url);
-      return !!query.json
-        ? await receivedData
-        : await receivedData.then(({ body }) => res.status(HttpStatus.OK).json(body)).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
-    }
+    query.consumed = false;
+    return this.spaceRequestService.fetchHandler(settings, query, res);
   }
 
   @Put('profile/:space')
   @UseGuards(AuthGuard('jwt'))
   async fetchProfile(@Param() param, @Query() query, @Response() res, @Req() req) {
     let profile = await this.spaceRequest(param, query, res, req).then(({ body }) => body);
-    const space = req.user.settings.find(({ space }) => space === param.space).space;
     if (this.spacesV1.some(source => source === param.space)) {
       profile = profile.data;
     }

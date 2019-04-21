@@ -17,7 +17,6 @@ export enum Sources {
   Uber = 'uber',
 }
 
-
 export enum InjectionTokens {
   CacheService = 'CacheServiceToken',
   MongoDbConnection = 'MongoDbConnection',
@@ -25,4 +24,6 @@ export enum InjectionTokens {
   SpaceModel = 'SpaceModelToken',
   TokenModel = 'TokenModelToken',
   SettingsModel = 'SettingsModelToken',
+  DropItemModel = 'DropItemModelToken',
+  DropSetModel = 'DropSetModelToken',
 }
