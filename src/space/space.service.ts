@@ -5,7 +5,6 @@ import { ISpace } from './interfaces/space.schema';
 import { ISpacesService } from './interfaces/ispaces.service';
 import { PassportLocalModel } from 'passport-local-mongoose';
 import { SpaceDto } from './dto/space.dto';
-import { debug } from 'util';
 import { Projections } from '../shared/repository/projections.constants';
 
 @Injectable()
@@ -51,7 +50,16 @@ export class SpaceService implements ISpacesService {
     return this.spaceModel
       .findOneAndUpdate({ name: spaceDto.name }, spaceDto, { upsert: true, new: true, runValidators: true })
       .then((space: ISpace) => ({ ...space.toObject() }))
-      .catch(() => debug('space not found'));
+      .catch(error => console.error(error));
+  }
+
+  public async updateProfile(name: string, owner: string, profile: any): Promise<ISpace> {
+    this.logger.log(`[SpaceService]`, `Updating ${owner}'s ${name} profile`);
+    profile.owner = owner;
+    return this.spaceModel
+      .findOneAndUpdate({ name }, { name, $addToSet: { profiles: profile } }, { runValidators: true })
+      .then(space => ({ ...space.toObject() }))
+      .catch(error => console.error(error));
   }
 
   //                                                                                                      //
@@ -74,21 +82,21 @@ export class SpaceService implements ISpacesService {
     return space ? { ...space.toObject() } : null;
   }
 
-  public async getSpace(clauses: {}, projection = Projections.Space): Promise<ISpace> {
+  public async getSpace(clauses: {}, sorter?: {}): Promise<ISpace> {
     this.logger.log(`[SpaceService]`, `Fetching Spaces with clauses: ${JSON.stringify(clauses)}`);
-    const space = await this.spaceModel.findOne(clauses, projection);
+    const space = await this.spaceModel.findOne(clauses, sorter);
     return space ? { ...space.toObject() } : null;
   }
 
-  public async getSpaces(clauses: {}, sorter?: {}, projection = Projections.Space): Promise<Array<ISpace>> {
+  public async getSpaces(clauses: {}, sorter?: {}): Promise<Array<ISpace>> {
     this.logger.log(`[SpaceService]`, `Fetching Spaces with clauses: ${JSON.stringify(clauses)}`);
-    const spaces = await this.buildQuery(clauses, sorter, projection);
+    const spaces: ISpace[] = await this.buildQuery(clauses, sorter);
     return spaces.map(space => ({ ...space.toObject() }));
   }
 
   public async search(name: any): Promise<Array<ISpace>> {
     this.logger.log(`[SpaceService]`, `Fetching Spaces with names that match: ${JSON.stringify(name)}`);
-    const spaces = await this.spaceModel
+    const spaces: ISpace[] = await this.spaceModel
       .find({
         name: { $regex: new RegExp(name, 'i') },
       })
@@ -105,8 +113,8 @@ export class SpaceService implements ISpacesService {
     try {
       await this.spaceModel.findOneAndDelete({ name: spaceDto.name, owner: spaceDto.owner }).exec();
       return `${spaceDto.name} space has been deleted`;
-    } catch (err) {
-      debug(err);
+    } catch (error) {
+      console.error(error);
       return `${spaceDto.name} space could not be deleted`;
     }
   }

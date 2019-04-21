@@ -1,4 +1,4 @@
-import { Schema, Document } from 'mongoose';
+import { Schema, Document, SchemaTypes } from 'mongoose';
 import { AuthorizationDBModel } from '../../auth/interfaces/auth.interfaces';
 import * as passportLocalMongoose from 'passport-local-mongoose';
 
@@ -6,10 +6,8 @@ const SpaceSchema = new Schema(
   {
     name: { type: String, required: true },
     icon: { type: String },
-    userid: { type: String },
     owner: { type: String, required: true },
-    username: { type: String, required: true },
-    description: { type: String, required: true },
+    profiles: [{ type: SchemaTypes.Mixed, owner: { type: String, required: true, unique: true } }],
   },
   { timestamps: true }
 );
@@ -17,10 +15,8 @@ const SpaceSchema = new Schema(
 export interface ISpace extends Document {
   readonly name: string;
   readonly icon: string;
-  readonly username: string;
-  readonly userid: string;
   readonly owner: string;
-  readonly description: string;
+  readonly profiles: any[];
 }
 
 SpaceSchema.plugin(passportLocalMongoose);

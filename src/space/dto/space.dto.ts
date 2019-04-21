@@ -9,13 +9,4 @@ export class SpaceDto {
 
   @ApiModelProperty()
   readonly icon: string;
-
-  @ApiModelProperty()
-  readonly username: string;
-
-  @ApiModelProperty()
-  readonly userid?: string;
-
-  @ApiModelProperty()
-  readonly description: string;
 }

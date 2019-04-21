@@ -6,10 +6,10 @@ import superagent = require('superagent');
 import { IToken } from '../auth/interfaces/auth.interfaces';
 import * as btoa from 'btoa';
 import { ConfigService } from '../config/config.service';
-import { QueryRequestSources } from './space.constant';
+import { QueryRequestSources as SpacesV1 } from './space.constant';
 @Injectable()
 export class SpaceRequestService {
-  public spaceMap: string[] = [];
+  public spacesV1: string[] = [];
 
   public constructor(
     private http: HttpService,
@@ -17,8 +17,8 @@ export class SpaceRequestService {
     public tokenService: TokenService,
     private readonly configService: ConfigService
   ) {
-    for (const n in QueryRequestSources) {
-      this.spaceMap.push(QueryRequestSources[n]);
+    for (const n in SpacesV1) {
+      this.spacesV1.push(SpacesV1[n]);
     }
   }
 
@@ -43,7 +43,7 @@ export class SpaceRequestService {
 
   public async getToken(settings: ISettings, options: any): Promise<any> {
     const config = this.configService.config;
-    let request = this.spaceMap.some(source => source !== settings.space)
+    let request = this.spacesV1.some(source => source !== settings.space)
       ? superagent.post(this.composeUrl(settings.credentials.grantorUrl, options))
       : superagent
           .post(settings.credentials.grantorUrl)
@@ -64,7 +64,7 @@ export class SpaceRequestService {
 
   public getData(settings: ISettings, url: string): Promise<any> {
     // return settings.authorization.info.token_type === 'Bearer'
-    return this.spaceMap.some(source => source !== settings.space)
+    return this.spacesV1.some(source => source !== settings.space)
       ? superagent.get(url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
       : superagent.get(this.composeUrl(url, { access_token: settings.authorization.info.access_token }));
   }

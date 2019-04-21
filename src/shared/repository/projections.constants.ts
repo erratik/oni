@@ -17,7 +17,7 @@ export namespace Projections {
 
   export const Space: { [key: string]: number } = {
     lastModified: 1,
-    username: 1,
+    owner: 1,
   };
 
   export const Settings: { [key: string]: number } = {

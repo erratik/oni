@@ -8,17 +8,24 @@ import { ConfigService } from '../config/config.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { IConfig } from '../config/config';
 import { SpaceRequestService } from './space-request.service';
+import { QueryRequestSources } from './space.constant';
 
 @ApiUseTags('spaces')
 @Controller('v1/spaces')
 export class SpaceController {
+  public spacesV1: string[] = [];
+
   constructor(
     private readonly spaceService: SpaceService,
     private readonly configService: ConfigService,
     private readonly settingsService: SettingsService,
     private readonly spaceRequestService: SpaceRequestService,
     public http: HttpService
-  ) {}
+  ) {
+    for (const n in QueryRequestSources) {
+      this.spacesV1.push(QueryRequestSources[n]);
+    }
+  }
 
   @Post('create')
   @UseGuards(AuthGuard('jwt'))
@@ -136,10 +143,21 @@ export class SpaceController {
     if (isTokenExpired && !!token.refresh_token) {
       return await this.spaceRequestService.refreshToken(settings, url).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
     } else {
-      return await this.spaceRequestService
-        .getData(settings, url)
-        .then(({ body }) => res.status(HttpStatus.OK).json(body))
-        .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
+      const receivedData = this.spaceRequestService.getData(settings, url);
+      return !!query.json
+        ? await receivedData
+        : await receivedData.then(({ body }) => res.status(HttpStatus.OK).json(body)).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
     }
+  }
+
+  @Put('profile/:space')
+  @UseGuards(AuthGuard('jwt'))
+  async fetchProfile(@Param() param, @Query() query, @Response() res, @Req() req) {
+    let profile = await this.spaceRequest(param, query, res, req).then(({ body }) => body);
+    const space = req.user.settings.find(({ space }) => space === param.space).space;
+    if (this.spacesV1.some(source => source === param.space)) {
+      profile = profile.data;
+    }
+    return await this.spaceService.updateProfile(param.space, req.user.username, profile).then(space => res.status(HttpStatus.OK).json(space));
   }
 }
