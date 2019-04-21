@@ -1,5 +1,5 @@
 import { ConfigModule } from './config/config.module';
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, HttpService } from '@nestjs/common';
 import { StatusModule } from './status/status.module';
 import { VersionModule } from './version/version.module';
 import { UserModule } from './user/user.module';
@@ -19,22 +19,17 @@ import { SpaceModule } from './space/space.module';
 import { entityValidatorMiddleware } from './shared/middlewares/entity-validator.middleware';
 import { SettingsModule } from './settings/settings.module';
 import { SettingsController } from './settings/settings.controller';
+import { spaceCredentialsMiddleware } from './shared/middlewares/space-credentials.middleware';
+import { TokenModule } from './token/token.module';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SpaceModule, SettingsModule],
-  providers: [
-    ...mongoDatabaseProviders,
-    ...userModelMongoDbProvider,
-    UserService,
-    LoggerService,
-    ConfigService,
-    AuthService,
-  ],
+  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule],
+  providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, LoggerService, ConfigService, AuthService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(userValidatorMiddleware).forRoutes(AuthController);
-    consumer.apply(tokenValidatorMiddleware).forRoutes(UserController);
+    consumer.apply(tokenValidatorMiddleware).forRoutes(UserController, TokenModule);
     consumer.apply(entityValidatorMiddleware).forRoutes(SpaceController, SettingsController);
   }
 }

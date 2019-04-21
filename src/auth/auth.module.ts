@@ -11,6 +11,8 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { LocalStrategy } from './passport/local.strategy';
 import { JwtStrategy } from './passport/jwt.strategy';
+import { settingsModelMongoDbProvider } from '../shared/repository/providers/mongo.settings.provider';
+import { SettingsService } from '../settings/settings.service';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { JwtStrategy } from './passport/jwt.strategy';
   providers: [
     ...mongoDatabaseProviders,
     ...userModelMongoDbProvider,
+    ...settingsModelMongoDbProvider,
+    SettingsService,
     AuthService,
     LoggerService,
     UserService,

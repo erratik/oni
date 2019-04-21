@@ -10,6 +10,8 @@ import { AuthService } from '../auth/auth.service';
 import { LoggerService } from '../shared/services/logger.service';
 import { JwtStrategy } from '../auth/passport/jwt.strategy';
 import { LocalStrategy } from '../auth/passport/local.strategy';
+import { settingsModelMongoDbProvider } from '../shared/repository/providers/mongo.settings.provider';
+import { SettingsService } from '../settings/settings.service';
 
 @Module({
   imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' })],
@@ -17,6 +19,8 @@ import { LocalStrategy } from '../auth/passport/local.strategy';
   providers: [
     ...mongoDatabaseProviders,
     ...userModelMongoDbProvider,
+    ...settingsModelMongoDbProvider,
+    SettingsService,
     UserService,
     AuthService,
     LoggerService,
@@ -24,6 +28,6 @@ import { LocalStrategy } from '../auth/passport/local.strategy';
     JwtStrategy,
     LocalStrategy,
   ],
-  exports: [UserService],
+  exports: [UserService, SettingsService],
 })
 export class UserModule {}

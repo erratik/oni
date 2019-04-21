@@ -4,6 +4,8 @@ export interface IConfig {
   name: string;
   version: string;
   mongodbUrl: string;
+  baseUrl: string;
+  spaceState: string;
   mongodbTestUrl: string;
   swaggerScheme: 'http' | 'https';
   cacheDuration: number;
@@ -22,6 +24,8 @@ export const config: IConfig = {
   version: `${require('../../package.json').version}${GITLAB_VERSION}`,
   mongodbTestUrl: 'mongodb://root@PZyvHilceT:localhost:27017/oni-test',
   mongodbUrl: process.env.MONGO_URI || 'mongodb://root:PZyvHilceT@localhost:27017/oni',
+  baseUrl: 'http://datawhore.erratik.ca:10011/v1',
+  spaceState: 'neverBreakTheChain',
   swaggerScheme: 'https',
   redisHost: process.env.REDIS_HOST || 'oni-redis-cache',
   redisPort: 6379,

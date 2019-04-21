@@ -2,6 +2,9 @@ import { ApiModelProperty } from '@nestjs/swagger';
 
 export class SpaceDto {
   @ApiModelProperty()
+  owner: string;
+
+  @ApiModelProperty()
   readonly name: string;
 
   @ApiModelProperty()
@@ -9,6 +12,9 @@ export class SpaceDto {
 
   @ApiModelProperty()
   readonly username: string;
+
+  @ApiModelProperty()
+  readonly userid?: string;
 
   @ApiModelProperty()
   readonly description: string;

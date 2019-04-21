@@ -1,10 +1,10 @@
 import { MiddlewareFunction, BadRequestException } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { validate } from 'joi';
-import { authUserSchema, registerUserSchema } from '../joi/auth-user.joi';
+import { authTokenSchema } from '../../shared/joi/auth-user.joi';
 
-export const userValidatorMiddleware: MiddlewareFunction = async (req: Request, res: Response, next: Function) => {
-  const result = validate(req.body, req.path.includes('/register') ? registerUserSchema : authUserSchema);
+export const spaceCredentialsMiddleware: MiddlewareFunction = async (req: Request, res: Response, next: Function) => {
+  const result = validate(req.headers, authTokenSchema);
 
   if (result.error) {
     const errorMessage = result.error.details.shift().message;

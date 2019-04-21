@@ -1,4 +1,4 @@
-version: "3.7"
+version: '3.7'
 
 volumes:
   mongo:
@@ -20,7 +20,7 @@ services:
     volumes:
       - redis:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   # MongoDB and document data store
   init:
@@ -33,10 +33,8 @@ services:
       mongo_net:
         ipv4_address: 172.16.0.3
     ports:
-      - "27017:27017"
+      - '27017:27017'
     command: ./run.sh
-    logging:
-      driver: none
 
   mongo:
     container_name: mongo
@@ -49,8 +47,8 @@ services:
       - mongo:/data
       - ./data/datawhore:/data/datawhore
     command: mongorestore --host=172.16.0.3 --db datawhore -u erratik -p kaya80ate ./data/datawhore
-    logging:
-      driver: none
+    # logging:
+    #   driver: none
 
   oni:
     image: node:9.6.1-alpine
@@ -70,8 +68,8 @@ services:
       - SESSION_SECRET=fiddle-farter
       - PORT=10011
     ports:
-      - "10011:10011"
-      - "127.0.0.1:9229:9229"
+      - '10011:10011'
+      - '127.0.0.1:9229:9229'
     volumes:
       - $PWD/tmp:/app/tmp
       - $PWD/dist:/app/dist

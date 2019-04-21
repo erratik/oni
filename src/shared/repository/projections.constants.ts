@@ -24,5 +24,9 @@ export namespace Projections {
     lastModified: 1,
     space: 1,
     credentials: 1,
+    owner: 1,
+    authorization: 1,
+    updatedAt: 1,
+    baseUrl: 1,
   };
 }

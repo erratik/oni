@@ -1,20 +1,16 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { LoggerService } from '../shared/services/logger.service';
 import { InjectionTokens, Sources } from '../app.constants';
-import { ISettings } from './interfaces/settings.schema';
+import { ISettings, ICredentials, IAuthorization } from './interfaces/settings.schema';
 import { ISettingsService } from './interfaces/isettings.service';
-import { PassportLocalModel } from 'mongoose';
+import { PassportLocalModel } from 'passport-local-mongoose';
 import { SettingsDto } from './dto/settings.dto';
 import { debug } from 'util';
 import { Projections } from '../shared/repository/projections.constants';
-import { CredentialsDto } from './dto/credentials.dto';
 
 @Injectable()
 export class SettingsService implements ISettingsService {
-  public constructor(
-    @Inject(InjectionTokens.SettingsModel) private readonly settingsModel: PassportLocalModel<ISettings>,
-    public logger: LoggerService
-  ) {}
+  public constructor(@Inject(InjectionTokens.SettingsModel) private readonly settingsModel: PassportLocalModel<ISettings>, public logger: LoggerService) {}
 
   //                                                                                                      //
   //** Query Helpers
@@ -31,10 +27,8 @@ export class SettingsService implements ISettingsService {
     let query: any;
 
     query = this.settingsModel.find(clauses).sort(sorter);
-    this.logger.log('[BaseRepository]', `buildQuery > > > ${JSON.stringify(clauses)}`);
-
+    this.logger.log('[SettingsService]', `buildQuery > > > ${JSON.stringify(clauses)}`);
     query.select(projection);
-
     return this.runQuery(query);
   }
 
@@ -45,10 +39,7 @@ export class SettingsService implements ISettingsService {
    * @param limit limit //? not sure about this yet
    */
   public runQuery(query: any) {
-    // if (offset !== undefined && limit !== undefined) {
-    //   return query.then(items => ({ total: items.total, result: items.docs.map(document => ({ id: document.id, ...document.toObject() }))}));
-    // }
-    this.logger.log('[BaseRepository]', `runQuery > > > `);
+    this.logger.log('[SettingsService]', `runQuery > > > `);
     return query.then(results => results.map(document => ({ id: document.id, ...document.toObject() })));
   }
 
@@ -57,30 +48,18 @@ export class SettingsService implements ISettingsService {
   //                                                                                                      //
 
   public async create(settingsDto: SettingsDto, owner: string): Promise<ISettings> {
-    const createdSettings = new this.settingsModel({ space: settingsDto.space, owner });
+    const createdSettings = new this.settingsModel({ ...settingsDto, owner });
     return await createdSettings.save();
   }
 
-  public async update(settings: ISettings): Promise<ISettings> {
-    this.logger.log(`[SettingsRepository]`, `Updating Setting: ${settings.space}`);
-    return this.settingsModel
-      .findOneAndUpdate({ space: settings.space }, settings, {
-        upsert: true,
-        new: true,
-        runValidators: true,
-      })
-      .then((settings: ISettings) => ({ ...settings.toObject() }))
-      .catch(() => debug('settings not found'));
-  }
-
-  public async updateCredentials(space: Sources, owner: string, settings: ISettings): Promise<ISettings> {
-    this.logger.log(`[SettingsRepository]`, `Updating credentials for ${space}`);
+  public async update(owner: string, space: Sources, settings: ISettings): Promise<ISettings> {
+    this.logger.log(`[SettingsService]`, `Updating credentials for ${space}`);
     return this.settingsModel
       .findOneAndUpdate({ space, owner }, settings, { upsert: true, new: true, runValidators: true })
       .then((settings: ISettings) => {
         return { ...settings.toObject() };
       })
-      .catch(() => debug('settings not found'));
+      .catch(err => debug(err));
   }
 
   //                                                                                                      //
@@ -92,31 +71,37 @@ export class SettingsService implements ISettingsService {
   }
 
   public async findById(id: string): Promise<ISettings> {
-    this.logger.log(`[SettingsRepository]`, `Fetching Setting with id: ${id}`);
-    const settings = await this.settingsModel.findById(id);
+    this.logger.log(`[SettingsService]`, `Fetching Setting with id: ${id}`);
+    const settings: ISettings = await this.settingsModel.findById(id);
     return settings ? { ...settings.toObject() } : null;
   }
 
-  public async getSettingsBySpace(space: string): Promise<ISettings | null> {
-    this.logger.log(`[SettingsRepository]`, `Fetching Setting with name: ${space}`);
-    const settings = await this.settingsModel.findOne({ space });
+  public async getSpaceCredentials(owner: string, space: string): Promise<ICredentials> {
+    this.logger.log(`[SettingsService]`, `Fetching ${owner}'s credentials for ${space}`);
+    const settings: ISettings = await this.settingsModel.findOne({ owner, space });
+    return settings ? { ...settings.credentials.toObject() } : null;
+  }
+
+  public async getSpaceAuthorization(owner: string, space: string): Promise<IAuthorization> {
+    this.logger.log(`[SettingsService]`, `Fetching ${owner}'s authorization for ${space}`);
+    const settings: ISettings = await this.settingsModel.findOne({ owner, space });
+    return settings ? { ...settings.authorization.toObject() } : null;
+  }
+
+  public async getSettingsBySpace(owner: string, space: string): Promise<ISettings | null> {
+    this.logger.log(`[SettingsService]`, `Fetching Setting with name: ${space}`);
+    const settings: ISettings = await this.settingsModel.findOne({ owner, space }).populate('authorization.info');
     return settings ? { ...settings.toObject() } : null;
   }
 
-  // public async getSetting(clauses: {}, projection = Projections.Settings): Promise<ISettings> {
-  //   this.logger.log(`[SettingsRepository]`, `Fetching Settings with clauses: ${JSON.stringify(clauses)}`);
-  //   const settings = await this.settingsModel.findOne(clauses, projection);
-  //   return settings ? { ...settings.toObject() } : null;
-  // }
-
-  public async getSettings(clauses: {}, sorter?: {}, projection = Projections.Settings): Promise<Array<ISettings>> {
-    this.logger.log(`[SettingsRepository]`, `Fetching Settings with clauses: ${JSON.stringify(clauses)}`);
-    const settings = await this.buildQuery(clauses, sorter, projection);
+  public async getSettings(clauses: {}): Promise<ISettings[]> {
+    this.logger.log(`[SettingsService]`, `Fetching Settings with clauses: ${JSON.stringify(clauses)}`);
+    const settings: ISettings[] = await this.settingsModel.find(clauses).populate('authorization.info');
     return settings.map(settings => settings);
   }
 
-  public async search(space: any): Promise<Array<ISettings>> {
-    this.logger.log(`[SettingsRepository]`, `Fetching Settings with names that match: ${JSON.stringify(space)}`);
+  public async search(space: any): Promise<ISettings[]> {
+    this.logger.log(`[SettingsService]`, `Fetching Settings with names that match: ${JSON.stringify(space)}`);
     const settings = await this.settingsModel
       .find({
         space: { $regex: new RegExp(space, 'i') },
@@ -130,13 +115,14 @@ export class SettingsService implements ISettingsService {
   //! Delete
   //                                                                                                      //
 
-  async delete(settingsDto: SettingsDto): Promise<string> {
+  async delete(owner: string, space: string): Promise<string> {
+    this.logger.log(`[SettingsService]`, `Deleting ${space} settings for ${owner}`);
     try {
-      await this.settingsModel.findOneAndDelete({ space: settingsDto.space }).exec();
-      return `${settingsDto.space} settings has been deleted`;
+      await this.settingsModel.findOneAndDelete({ owner, space }).exec();
+      return `${space} settings for ${owner} has been deleted`;
     } catch (err) {
       debug(err);
-      return `${settingsDto.space} space could not be deleted`;
+      return `${space} space for ${space} could not be deleted`;
     }
   }
 }

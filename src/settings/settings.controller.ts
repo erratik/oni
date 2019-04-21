@@ -1,39 +1,21 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-  HttpStatus,
-  Response,
-  Param,
-  Post,
-  Body,
-  Put,
-  Delete,
-  Req,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, Response, Param, Post, Body, Put, Delete, Req, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SettingsService } from './settings.service';
 import { ApiUseTags } from '@nestjs/swagger';
 import { SettingsDto } from './dto/settings.dto';
-import { UserService } from '../user/user.service';
-import { CredentialsDto } from './dto/credentials.dto';
-import { IUser } from '../user/interfaces/user.schema';
-import { ISettings, ICredentials } from './interfaces/settings.schema';
-import { settings } from 'cluster';
+import { ISettings } from './interfaces/settings.schema';
+import { LoggerService } from '../shared/services/logger.service';
 
 @ApiUseTags('settings')
 @Controller('v1/settings')
 export class SettingsController {
-  constructor(private readonly settingsService: SettingsService, private readonly userService: UserService) {}
+  constructor(private readonly settingsService: SettingsService, public logger: LoggerService) {}
 
   @Post('create')
   @UseGuards(AuthGuard('jwt'))
-  async createSpace(@Response() res, @Req() req, @Body() settingsDto: SettingsDto) {
-    const token = req.headers.authorization.replace('Bearer ', '');
-    const user: IUser = await this.userService.getUserByToken(token);
+  async createSpaceSettings(@Response() res, @Req() req, @Body() settingsDto: SettingsDto) {
     return await this.settingsService
-      .create(settingsDto, user.username)
+      .create(settingsDto, req.user.username)
       .then(space => res.status(HttpStatus.OK).json(space))
       .catch(err => res.send(err));
   }
@@ -41,8 +23,7 @@ export class SettingsController {
   @Get('')
   @UseGuards(AuthGuard('jwt'))
   async getSettings(@Response() res, @Query() query?, @Body() body?) {
-    const fetchSettings =
-      !!query && !!query.search ? this.settingsService.getSettings(body) : this.settingsService.findAll();
+    const fetchSettings = !!query && !!query.search ? this.settingsService.getSettings(body) : this.settingsService.findAll();
     return await fetchSettings.then(settings => {
       if (!settings) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
@@ -56,8 +37,8 @@ export class SettingsController {
 
   @Get(':space')
   @UseGuards(AuthGuard('jwt'))
-  async getSetting(@Param() param, @Response() res) {
-    return await this.settingsService.getSettingsBySpace(param.space).then(settings => {
+  async getSetting(@Param() param, @Req() req, @Response() res) {
+    return await this.settingsService.getSettingsBySpace(req.user.username, param.space).then(settings => {
       if (!settings) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           message: `No settings found for ${param.space}`,
@@ -68,113 +49,61 @@ export class SettingsController {
     });
   }
 
-  @Put('credentials/:space')
+  @Put(':space')
   @UseGuards(AuthGuard('jwt'))
-  async updateSettings(
-    @Param() params,
-    @Req() req,
-    @Response() res,
-    @Query() query,
-    @Body() credentialsDto: CredentialsDto
-  ) {
-    const token = req.headers.authorization.replace('Bearer ', '');
-    const user: IUser = await this.userService.getUserByToken(token);
-    const settings: ISettings = await this.settingsService.getSettingsBySpace(params.space);
+  async updateSettings(@Param() param, @Req() req, @Response() res, @Body() settingsDto: SettingsDto) {
+    let settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
 
     // todo: throw error if updating wrong user/owner
 
     if (!settings) {
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: `No settings found for ${params.space}`,
+        message: `No settings found for ${param.space}`,
       });
-    }
-
-    if (!!settings.credentials.length) {
-      // Object.keys(credentialsDto).forEach(credentialKey => {
-      settings.credentials = settings.credentials.map(credential => {
-        if (credential.scope === query.scope) {
-          credential.clientId = credentialsDto.clientId;
-          credential.clientSecret = credentialsDto.clientSecret;
-          credential.callbackUrl = credentialsDto.callbackUrl;
-          credential.updatedAt = new Date();
-        }
-        return credential;
-      });
-      // });
     } else {
-      settings.space = params.space;
-      settings.credentials.push({
-        clientId: credentialsDto.clientId,
-        clientSecret: credentialsDto.clientSecret,
-        callbackUrl: credentialsDto.callbackUrl,
-        updatedAt: new Date(),
-        scope: query.scope,
-      } as ICredentials);
+      settings = Object.assign(settings, settingsDto);
     }
 
-    debugger;
     return await this.settingsService
-      .updateCredentials(params.space, user.username, settings)
+      .update(req.user.username, param.space, settings)
       .then(settings => res.status(HttpStatus.OK).json(settings))
       .catch(err => res.send(err));
   }
 
-  @Delete('delete')
+  @Delete(':owner')
   @UseGuards(AuthGuard('jwt'))
-  async deleteSettings(@Response() res, @Body() settingsDto: SettingsDto) {
+  async deleteSettings(@Param() param, @Response() res) {
     return await this.settingsService
-      .delete(settingsDto)
+      .delete(param.owner, param.space)
       .then(settings => res.status(HttpStatus.OK).json(settings))
       .catch(err => res.send(err));
   }
 
-  @Delete('delete/credentials')
+  @Delete(':space/:key')
   @UseGuards(AuthGuard('jwt'))
-  async deleteCredentials(@Req() req, @Response() res, @Body() settingsDto: SettingsDto) {
-    const token = req.headers.authorization.replace('Bearer ', '');
-    const user: IUser = await this.userService.getUserByToken(token);
-    const settings: ISettings = await this.settingsService.getSettingsBySpace(settingsDto.space);
+  async deleteSettingsKey(@Param() param, @Req() req, @Response() res) {
+    const settings: ISettings = req.user.settings;
 
     if (!settings) {
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: `No settings found for ${settingsDto.space}`,
+        message: `No ${param.space} settings found for ${req.user.username}`,
       });
       return;
     } else if (!settings.credentials) {
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: `No ${settingsDto.scope} credentials found in ${settingsDto.space}`,
+        message: `No ${param.space} ${param.key} found for ${req.user.username}`,
       });
       return;
     }
 
-    settings.credentials = settings.credentials.filter(credential => credential.scope !== settingsDto.scope);
+    delete settings[param.key];
 
-    debugger;
     return await this.settingsService
-      .updateCredentials(settingsDto.space, user.username, settings)
-      .then(settings => res.status(HttpStatus.OK).json(settings))
+      .update(req.user.username, param.space, settings)
+      .then(settings => {
+        debugger;
+        return res.status(HttpStatus.OK).json(settings);
+      })
       .catch(err => res.send(err));
   }
-
-  // @Get('connect/:settingsName')
-  // @UseGuards(AuthGuard('spotify'))
-  // async connectUserToSettings(@Param() param, @Response() res, @Req() req) {
-  //   // get user through authorization bearer token
-  //   const token = req.headers.authorization.replace('Bearer ', '');
-  //   const user = await this.userService.getUserByToken(token);
-
-  //   //connect to settings
-
-  //   //retrieve token && save it
-  //   return res.status(HttpStatus.OK).json({ user });
-  //   // return await this.settingsService.getSettingsByName(param.settingsName).then(settings => {
-  //   //   if (!settings) {
-  //   //     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-  //   //       message: `Failed to get a token from ${param.settingsName}`,
-  //   //     });
-  //   //   } else {
-  //   //     return res.status(HttpStatus.OK).json(settings);
-  //   //   }
-  //   // });
-  // }
 }

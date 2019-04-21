@@ -3,18 +3,14 @@ import { LoggerService } from '../shared/services/logger.service';
 import { InjectionTokens } from '../app.constants';
 import { IUser } from './interfaces/user.schema';
 import { IUsersService } from './interfaces/iusers.service';
-import { PassportLocalModel } from 'mongoose';
+import { PassportLocalModel } from 'passport-local-mongoose';
 import { CreateUserDto } from './dto/createUser.dto';
 import { debug } from 'util';
 import { Projections } from '../shared/repository/projections.constants';
 
 @Injectable()
 export class UserService implements IUsersService {
-  public itemType: string = 'User';
-  public constructor(
-    @Inject(InjectionTokens.UserModel) private readonly userModel: PassportLocalModel<IUser>,
-    public logger: LoggerService
-  ) {}
+  public constructor(@Inject(InjectionTokens.UserModel) private readonly userModel: PassportLocalModel<IUser>, public logger: LoggerService) {}
 
   //                                                                                                      //
   //** Query Helpers
@@ -31,7 +27,7 @@ export class UserService implements IUsersService {
     let query: any;
 
     query = this.userModel.find(clauses).sort(sorter);
-    this.logger.log('[BaseRepository]', `buildQuery > > > ${JSON.stringify(clauses)}`);
+    this.logger.log('[UserService]', `buildQuery > > > ${JSON.stringify(clauses)}`);
 
     query.select(projection);
 
@@ -48,7 +44,7 @@ export class UserService implements IUsersService {
     // if (offset !== undefined && limit !== undefined) {
     //   return query.then(items => ({ total: items.total, result: items.docs.map(document => ({ id: document.id, ...document.toObject() }))}));
     // }
-    this.logger.log('[BaseRepository]', `runQuery > > > `);
+    this.logger.log('[UserService]', `runQuery > > > `);
     return query.then(results => results.map(document => ({ id: document.id, ...document.toObject() })));
   }
 
@@ -62,7 +58,7 @@ export class UserService implements IUsersService {
   }
 
   public async update(user: IUser): Promise<IUser> {
-    this.logger.log(`[${this.itemType}Repository]`, `Updating ${this.itemType}: ${user.username}`);
+    this.logger.log(`[UserService]`, `Updating User: ${user.username}`);
     return this.userModel
       .findOneAndUpdate({ username: user.username }, user, { upsert: true, new: true, runValidators: true })
       .then(user => ({ ...user.toObject() }))
@@ -78,46 +74,37 @@ export class UserService implements IUsersService {
   }
 
   public async findById(id: string): Promise<IUser> {
-    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with id: ${id}`);
+    this.logger.log(`[UserService]`, `Fetching User with id: ${id}`);
     const user = await this.userModel.findById(id);
     return user ? { id: user._id, ...user.toObject() } : null;
   }
 
   public async getUserByName(username: string): Promise<IUser | null> {
-    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType} with username: ${username}`);
+    this.logger.log(`[UserService]`, `Fetching User with username: ${username}`);
     const user = await this.userModel.findOne({ username });
     return user ? { ...user.toObject() } : null;
   }
 
   public async getUser(clauses: {}, projection = Projections.User): Promise<IUser> {
-    this.logger.log(
-      `[${this.itemType}Repository]`,
-      `Fetching ${this.itemType}s with clauses: ${JSON.stringify(clauses)}`
-    );
+    this.logger.log(`[UserService]`, `Fetching Users with clauses: ${JSON.stringify(clauses)}`);
     const user = await this.userModel.findOne(clauses, projection);
     return user ? { ...user.toObject() } : null;
   }
 
   public async getUsers(clauses: {}, sorter?: {}, projection = Projections.User): Promise<Array<IUser>> {
-    this.logger.log(
-      `[${this.itemType}Repository]`,
-      `Fetching ${this.itemType}s with clauses: ${JSON.stringify(clauses)}`
-    );
+    this.logger.log(`[UserService]`, `Fetching Users with clauses: ${JSON.stringify(clauses)}`);
     const users = await this.buildQuery(clauses, sorter, projection);
     return users.map(user => ({ ...user.toObject() }));
   }
 
   public async getUserByToken(token: string): Promise<IUser> {
-    this.logger.log(`[${this.itemType}Repository]`, `Fetching ${this.itemType}s with token value: ${token}`);
+    this.logger.log(`[UserService]`, `Fetching Users with token value: ${token}`);
     const user = await this.userModel.findOne({ authorization: { $elemMatch: { token } } });
     return user ? { ...user.toObject() } : null;
   }
 
   public async search(username: any): Promise<Array<IUser>> {
-    this.logger.log(
-      `[${this.itemType}Repository]`,
-      `Fetching ${this.itemType}s with usernames that match: ${JSON.stringify(username)}`
-    );
+    this.logger.log(`[UserService]`, `Fetching Users with usernames that match: ${JSON.stringify(username)}`);
     const users = await this.userModel
       .find({
         username: { $regex: new RegExp(username, 'i') },

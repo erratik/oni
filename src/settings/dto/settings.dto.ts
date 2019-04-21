@@ -1,17 +1,20 @@
 import { ApiModelProperty } from '@nestjs/swagger';
-import { ICredentials } from '../../settings/interfaces/settings.schema';
+import { ICredentials, IAuthorization } from '../../settings/interfaces/settings.schema';
 import { Sources } from '../../app.constants';
 
 export class SettingsDto {
   @ApiModelProperty()
+  owner: string;
+
+  @ApiModelProperty()
   readonly space: Sources;
 
   @ApiModelProperty()
-  owner?: string;
+  readonly baseUrl: string;
 
   @ApiModelProperty()
-  scope?: string;
+  readonly authorization?: IAuthorization;
 
   @ApiModelProperty()
-  credentials?: Array<ICredentials>;
+  readonly credentials?: ICredentials;
 }

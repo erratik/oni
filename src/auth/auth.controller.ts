@@ -1,4 +1,4 @@
-import { Controller, UseGuards, HttpStatus, Response, Post, Body, Get, Req } from '@nestjs/common';
+import { Controller, UseGuards, HttpStatus, Response, Post, Body, Get, Req, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiUseTags, ApiResponse } from '@nestjs/swagger';
@@ -37,20 +37,4 @@ export class AuthController {
       }
     });
   }
-
-  // @Post(':spaceName')
-  // @UseGuards(AuthGuard('local'))
-  // async authorizeSpace(@Response() res, @Body() login: LoginUserDto) {
-  //   return await this.userService.getUser({ username: login.username }).then(async user => {
-  //     if (!user) {
-  //       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-  //         message: 'User Not Found',
-  //       });
-  //     } else {
-  //       console.log('start getting the token');
-  //       const updatedUser = await this.authService.createToken(user);
-  //       return res.status(HttpStatus.OK).json(updatedUser);
-  //     }
-  //   });
-  // }
 }

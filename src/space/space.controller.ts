@@ -1,24 +1,29 @@
-import { Controller, Get, UseGuards, HttpStatus, Response, Param, Post, Body, Put, Delete, Req } from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, HttpService, Response, Param, Post, Body, Put, Delete, Req, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SpaceService } from './space.service';
 import { ApiUseTags } from '@nestjs/swagger';
 import { SpaceDto } from './dto/space.dto';
-import { UserService } from '../user/user.service';
 import { SettingsService } from '../settings/settings.service';
+import { ConfigService } from '../config/config.service';
+import { ISettings } from '../settings/interfaces/settings.schema';
+import { IConfig } from '../config/config';
+import { SpaceRequestService } from './space-request.service';
 
 @ApiUseTags('spaces')
 @Controller('v1/spaces')
 export class SpaceController {
   constructor(
     private readonly spaceService: SpaceService,
-    private readonly userService: UserService,
-    private readonly settingsService: SettingsService
+    private readonly configService: ConfigService,
+    private readonly settingsService: SettingsService,
+    private readonly spaceRequestService: SpaceRequestService,
+    public http: HttpService
   ) {}
 
   @Post('create')
   @UseGuards(AuthGuard('jwt'))
-  async createSpace(@Response() res, @Body() spaceDto: SpaceDto) {
-    return await this.spaceService.create(spaceDto).then(space => res.status(HttpStatus.OK).json(space));
+  async createSpace(@Response() res, @Req() req, @Body() spaceDto: SpaceDto) {
+    return await this.spaceService.create({ ...spaceDto, owner: req.user.username }).then(space => res.status(HttpStatus.OK).json(space));
   }
 
   @Get('')
@@ -35,13 +40,13 @@ export class SpaceController {
     });
   }
 
-  @Get(':spaceName')
+  @Get(':space')
   @UseGuards(AuthGuard('jwt'))
-  async getSpace(@Param() params, @Response() res) {
-    return await this.spaceService.getSpaceByName(params.spaceName).then(space => {
+  async getSpace(@Param() param, @Response() res) {
+    return await this.spaceService.getSpaceByName(param.space).then(space => {
       if (!space) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `No space found for ${params.spaceName}`,
+          message: `No space found for ${param.space}`,
         });
       } else {
         return res.status(HttpStatus.OK).json(space);
@@ -51,50 +56,90 @@ export class SpaceController {
 
   @Put('update')
   @UseGuards(AuthGuard('jwt'))
-  async updateSpace(@Response() res, @Body() spaceDto: SpaceDto) {
-    return await this.spaceService.update(spaceDto).then(space => res.status(HttpStatus.OK).json(space));
+  async updateSpace(@Req() req, @Response() res, @Body() spaceDto: SpaceDto) {
+    return await this.spaceService.update({ ...spaceDto, owner: req.user.username }).then(space => res.status(HttpStatus.OK).json(space));
   }
 
   @Delete('delete')
   @UseGuards(AuthGuard('jwt'))
-  async deleteSpace(@Response() res, @Body() spaceDto: SpaceDto) {
-    return await this.spaceService.delete(spaceDto).then(space => res.status(HttpStatus.OK).json(space));
+  async deleteSpace(@Req() req, @Response() res, @Body() spaceDto: SpaceDto) {
+    return await this.spaceService.delete({ ...spaceDto, owner: req.user.username }).then(space => res.status(HttpStatus.OK).json(space));
   }
 
-  @Get('connect/:spaceName')
+  @Get('connect/:space')
   @UseGuards(AuthGuard('jwt'))
-  async connectUserToSpace(@Param() params, @Response() res, @Req() req) {
-    // get user through authorization bearer token
-    const token = req.headers.authorization.replace('Bearer ', '');
-    let userHasAuth = false;
+  async connectSpace(@Param() param, @Response() res, @Req() req) {
+    const config: IConfig = this.configService.config;
+    const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
 
-    const info = await Promise.all([
-      this.userService.getUserByToken(token),
-      this.settingsService.getSettings(params),
-    ]).then(([user, settings]) => {
-      debugger;
-      //check if user has auth
+    return res.redirect(
+      HttpStatus.TEMPORARY_REDIRECT,
+      this.spaceRequestService.composeUrl(settings.authorization.url, {
+        client_id: settings.credentials.clientId,
+        state: `${settings.owner}-${config.spaceState}-${settings.credentials.grantorUrl}`,
+        scope: settings.credentials.scopes,
+        redirect_uri: `${config.baseUrl}/spaces/callback/${param.space}`,
+        response_type: 'code',
+      })
+    );
+  }
 
-      return [user, settings];
-    });
-    // const user = await this.userService.getUserByToken(params.spaceName).then(user => {
-    //   console.log(user);
-    // });
+  @Get('callback/:space')
+  async spaceCallback(@Param() param, @Response() res, @Req() req) {
+    if (!!req.query.error) {
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: req.query.error });
+    }
 
-    // settings = await this.settingsService.getSettingsBySpace(params.spaceName);
-    //connect to space
+    const config = this.configService.config;
+    const code: string = req.query.code;
+    const stateStr: string = req.query.state;
+    const owner: string = stateStr.split('-')[0];
+    const state: string = stateStr.split('-')[1];
+    const verification: string = config.spaceState;
 
-    //retrieve token && save it
+    if (state !== verification) {
+      res.status(HttpStatus.UNAUTHORIZED).json({ error: `Suspicious activity detected :O` });
+    }
 
-    return res.status(HttpStatus.OK).json({ info });
-    // return await this.spaceService.getSpaceByName(param.spaceName).then(space => {
-    //   if (!space) {
-    //     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-    //       message: `Failed to get a token from ${param.spaceName}`,
-    //     });
-    //   } else {
-    //     return res.status(HttpStatus.OK).json(space);
-    //   }
-    // });
+    const settings = await this.settingsService.getSettingsBySpace(owner, param.space);
+    const options = {
+      client_id: settings.credentials.clientId,
+      client_secret: settings.credentials.clientSecret,
+      grant_type: 'authorization_code',
+      redirect_uri: `${config.baseUrl}/spaces/callback/${param.space}`,
+      code,
+    };
+    const url = this.spaceRequestService.composeUrl(stateStr.split('-')[2], options);
+
+    await this.spaceRequestService
+      .getToken(settings, options)
+      .then(token => res.status(HttpStatus.OK).json({ message: `Successfully saved ${param.space} token info for ${owner}`, response: token }))
+      .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
+  }
+
+  @Get('fetch/:space')
+  @UseGuards(AuthGuard('jwt'))
+  async spaceRequest(@Param() param, @Query() query, @Response() res, @Req() req) {
+    const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
+    if (!settings) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${param.space} settings for found for ${req.user.username}` });
+    }
+
+    const token = settings.authorization.info;
+    if (!token) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${param.space} token for ${req.user.username}` });
+    }
+
+    const url = settings.baseUrl + query.endpoint;
+    const isTokenExpired = new Date().valueOf() >= token.updatedAt.valueOf() + token.expires_in * 1000;
+
+    if (isTokenExpired && !!token.refresh_token) {
+      return await this.spaceRequestService.refreshToken(settings, url).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
+    } else {
+      return await this.spaceRequestService
+        .getData(settings, url)
+        .then(({ body }) => res.status(HttpStatus.OK).json(body))
+        .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
+    }
   }
 }

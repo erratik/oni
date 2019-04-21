@@ -11,5 +11,11 @@ export class CredentialsDto {
   readonly clientSecret: string;
 
   @ApiModelProperty()
-  readonly callbackUrl: string;
+  readonly authorizationUrl: string;
+
+  @ApiModelProperty()
+  readonly grantorUrl?: string;
+
+  @ApiModelProperty()
+  readonly scopes?: string;
 }

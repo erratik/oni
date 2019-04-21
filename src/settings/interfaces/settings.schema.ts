@@ -1,21 +1,24 @@
 import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
+import { IToken } from '../../token/interfaces/tokens.schema';
 
-// const credentialsSchema = new Schema(
-//   {
-//     clientId: { type: String, required: true, unique: true },
-//     clientSecret: { type: String, required: true, unique: true },
-//     callbackUrl: { type: Date, required: true },
-//   },
-//   { timestamps: true }
-// );
+const AuthorizationSchema = new Schema(
+  {
+    url: { type: String, required: true, unique: true },
+    info: {
+      type: Schema.Types.ObjectId,
+      ref: 'Tokens',
+    },
+  },
+  { timestamps: true }
+);
 
-const credentialsSchema = new Schema(
+const CredentialsSchema = new Schema(
   {
     clientId: { type: String, required: true },
     clientSecret: { type: String, required: true },
-    callbackUrl: { type: String, required: true },
-    scope: { type: String, required: true },
+    scopes: { type: String },
+    grantorUrl: { type: String },
   },
   { timestamps: true }
 );
@@ -23,24 +26,32 @@ const credentialsSchema = new Schema(
 const SettingsSchema = new Schema(
   {
     space: { type: String, required: true, unique: true },
+    baseUrl: { type: String, required: true },
     owner: { type: String },
-    credentials: [credentialsSchema],
+    authorization: { type: AuthorizationSchema },
+    credentials: { type: CredentialsSchema },
   },
   { timestamps: true }
 );
 
+export interface IAuthorization extends Document {
+  url: string;
+  info?: IToken;
+}
+
 export interface ICredentials extends Document {
   clientId: string;
   clientSecret: string;
-  callbackUrl: string;
-  scope: string;
-  updatedAt: Date;
+  grantorUrl: string;
+  scopes: string;
 }
 
 export interface ISettings extends Document {
   space: string;
   owner: string;
-  credentials?: Array<any>;
+  baseUrl: string;
+  credentials?: ICredentials;
+  authorization?: IAuthorization;
 }
 
 SettingsSchema.plugin(passportLocalMongoose);

@@ -7,6 +7,8 @@ export const configProd: IConfig = {
   version: `${require('../../package.json').version}${GITLAB_VERSION}`,
   mongodbTestUrl: 'mongodb://localhost:27017/oni-test',
   mongodbUrl: 'mongodb://root:PZyvHilceT@localhost:27017/oni',
+  baseUrl: 'http://datawhore.erratik.ca:10011/v1',
+  spaceState: 'neverBreakTheChain',
   swaggerScheme: 'https',
   redisHost: 'oni-redis-cache',
   redisPort: 6379,
