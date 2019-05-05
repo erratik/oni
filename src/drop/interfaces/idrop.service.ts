@@ -5,12 +5,14 @@ import { IDropSchema } from './drop-schema.schema';
 import { IDropItem } from './drop-item.schema';
 
 export interface IDropService {
-  getDropSet(space: string, options: any, owner: string): Promise<IDropSet | null>;
-  upsertDropSet(schema: DropSchemaDto, settings?: ISettings): Promise<IDropSet>;
-  deleteDropSet?(owner: string, space: string): Promise<string>;
+  getDropSet(space: string, owner: string, options: any): Promise<IDropSet | null>;
+  upsertDropSet(space: string, owner: string, ids?: string[], cursors?: {}): Promise<IDropSet>;
+  deleteDropSet?(space: string, owner: string): Promise<string>;
+  // toggleDropKey?(path: string): Promise<IDropKey>;
+  // saveDropKeys?(keys: DropKeyDto): Promise<IDropKey>;
 
   getDropSchema(space: string, owner?: string): Promise<IDropSchema | null>;
-  updateDropSchema(schema: DropSchemaDto, settings?: ISettings): Promise<IDropSchema | null>;
+  updateDropSchema?(schema: DropSchemaDto, settings?: ISettings): Promise<IDropSchema | null>;
 
-  addDrops(drops: IDropItem[]): Promise<IDropItem[] | null>;
+  addDrops(space: string, owner: string, drops: IDropItem[], cursors?: {}): Promise<IDropItem[] | null>;
 }

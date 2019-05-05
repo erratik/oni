@@ -9,6 +9,7 @@ import { tokenModelMongoDbProvider } from './repository/providers/mongo.tokens.p
 import { SettingsService } from '../settings/settings.service';
 import { mongoDatabaseProviders } from './repository/providers/mongo.database.provider';
 import { settingsModelMongoDbProvider } from './repository/providers/mongo.settings.provider';
+import { userModelMongoDbProvider } from './repository/providers/mongo.user.provider';
 
 @Module({
   imports: [HttpModule],
@@ -16,6 +17,7 @@ import { settingsModelMongoDbProvider } from './repository/providers/mongo.setti
     ...mongoDatabaseProviders,
     ...tokenModelMongoDbProvider,
     ...settingsModelMongoDbProvider,
+    ...userModelMongoDbProvider,
     TokenService,
     ConfigService,
     LoggerService,

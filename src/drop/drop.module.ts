@@ -15,6 +15,9 @@ import { DropService } from './drop.service';
 import { SpaceRequestService } from '../space/space-request.service';
 import { dropSetModelMongoDbProvider } from '../shared/repository/providers/mongo.drop-set.provider';
 import { dropItemModelMongoDbProvider } from '../shared/repository/providers/mongo.drop-items.provider';
+import { attributeModelMongoDbProvider } from '../shared/repository/providers/mongo.attributes.provider';
+import { AttributeService } from '../attributes/attributes.service';
+import { DropManipulatorService } from './drop-manipulation.service';
 
 @Module({
   imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' }), HttpModule],
@@ -25,15 +28,18 @@ import { dropItemModelMongoDbProvider } from '../shared/repository/providers/mon
     ...dropSetModelMongoDbProvider,
     ...dropItemModelMongoDbProvider,
     ...userModelMongoDbProvider,
+    ...attributeModelMongoDbProvider,
     DropService,
     AuthService,
     UserService,
     SettingsService,
+    AttributeService,
     LoggerService,
     ConfigService,
     DropService,
     JwtStrategy,
     SpaceRequestService,
+    DropManipulatorService,
   ],
   exports: [DropService],
 })

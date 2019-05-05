@@ -13,6 +13,9 @@ export class SettingsDto {
   readonly baseUrl: string;
 
   @ApiModelProperty()
+  readonly cron: string;
+
+  @ApiModelProperty()
   readonly authorization?: IAuthorization;
 
   @ApiModelProperty()

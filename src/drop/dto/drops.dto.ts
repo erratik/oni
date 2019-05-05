@@ -7,6 +7,9 @@ export class DropSchemaDto {
   owner: string;
 
   @ApiModelProperty()
+  readonly id?: string;
+
+  @ApiModelProperty()
   readonly space: string;
 
   @ApiModelProperty()
@@ -15,6 +18,15 @@ export class DropSchemaDto {
   @ApiModelProperty()
   readonly schemas?: IDropSchema[];
 
+  // @ApiModelProperty()
+  // readonly stats?: any;
+
   @ApiModelProperty()
-  readonly stats?: any;
+  readonly endpoint?: any;
+
+  @ApiModelProperty()
+  readonly navigation?: any;
+
+  @ApiModelProperty()
+  readonly keys?: string[];
 }

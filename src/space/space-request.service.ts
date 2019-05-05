@@ -1,22 +1,17 @@
-import { Injectable, HttpService, HttpStatus, Query, Response } from '@nestjs/common';
+import * as superagent from 'superagent';
+import * as btoa from 'btoa';
+import { Injectable, HttpStatus, Response } from '@nestjs/common';
 import { LoggerService } from '../shared/services/logger.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { TokenService } from '../token/token.service';
-import superagent = require('superagent');
-import { IToken } from '../auth/interfaces/auth.interfaces';
-import * as btoa from 'btoa';
 import { ConfigService } from '../config/config.service';
 import { QueryRequestSources as SpacesV1 } from './space.constants';
+
 @Injectable()
 export class SpaceRequestService {
   public spacesV1: string[] = [];
 
-  public constructor(
-    private http: HttpService,
-    public logger: LoggerService,
-    public tokenService: TokenService,
-    private readonly configService: ConfigService
-  ) {
+  public constructor(public logger: LoggerService, public tokenService: TokenService, private readonly configService: ConfigService) {
     for (const n in SpacesV1) {
       this.spacesV1.push(SpacesV1[n]);
     }
@@ -82,13 +77,13 @@ export class SpaceRequestService {
     });
   }
 
-  public async fetchHandler(settings: ISettings, query: any, @Response() res): Promise<any> {
-    if (!settings) {
+  public async fetchHandler(settings: ISettings, query: any, @Response() res) {
+    if (!settings && !!res) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} settings for found for ${settings.owner}` });
     }
 
     const token = settings.authorization.info;
-    if (!token) {
+    if (!token && !!res) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} token for ${settings.owner}` });
     }
 
@@ -96,11 +91,13 @@ export class SpaceRequestService {
     const isTokenExpired = new Date().valueOf() >= token.updatedAt.valueOf() + token.expires_in * 1000;
 
     if (isTokenExpired && !!token.refresh_token) {
-      return await this.refreshToken(settings, url).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err));
+      return await this.refreshToken(settings, url).catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
     } else {
       const receivedData = this.getData(settings, url);
       return !query.consumed
-        ? await receivedData.then(({ body }) => res.status(HttpStatus.OK).json(body)).catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err))
+        ? await receivedData
+            .then(({ body }) => (!res ? null : res.status(HttpStatus.OK).json(body)))
+            .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err))
         : await receivedData.then(({ body }) => body);
     }
   }

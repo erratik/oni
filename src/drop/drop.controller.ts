@@ -1,22 +1,46 @@
-import { Controller, Get, UseGuards, HttpStatus, Response, Param, Post, Body, Req, Query } from '@nestjs/common';
+import * as schedule from 'node-schedule';
+import * as moment from 'moment';
+import { Controller, Get, UseGuards, HttpStatus, Response, Param, Req, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DropService } from './drop.service';
 import { ApiUseTags } from '@nestjs/swagger';
-import { UserService } from '../user/user.service';
 import { ConfigService } from '../config/config.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { SpaceRequestService } from '../space/space-request.service';
-import { ResponseItemsPath as xPath } from './drop.constants';
-import { DropSchemaDto } from './dto/drops.dto';
-import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { Sources } from '../app.constants';
-import * as btoa from 'btoa';
+import { ResponseItemsPath } from './drop.constants';
+import { DropManipulatorService } from './drop-manipulation.service';
+import { SettingsService } from '../settings/settings.service';
+import { AttributeService } from '../attributes/attributes.service';
 
 @ApiUseTags('drops')
 @Controller('v1/drops')
 export class DropController {
-  constructor(private readonly dropService: DropService, private readonly spaceRequestService: SpaceRequestService) {}
+  public runSchedules = {
+    spotify: null,
+  };
+  public settings;
+  constructor(
+    private configService: ConfigService,
+    private readonly dropService: DropService,
+    private readonly settingsService: SettingsService,
+    private readonly manipulatorService: DropManipulatorService,
+    private readonly attributeService: AttributeService,
+    private readonly spaceRequestService: SpaceRequestService
+  ) {
+    const that = this;
+    (async () => {
+      that.settings = await that.settingsService.getSettings({}).then(someSettings => {
+        // setup schedules for each user and space
+        someSettings.forEach(settings => {
+          that.runSchedules[settings.space] = schedule.scheduleJob(settings.cron, function() {
+            that.fetchDrops({ space: settings.space }, {}, settings).catch(error => console.log(error));
+            console.log(`⏲ Schedule ran for ${settings.space}, next run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
+          });
+        });
+      });
+    })();
+  }
 
   @Get(':space')
   @UseGuards(AuthGuard('jwt'))
@@ -53,34 +77,34 @@ export class DropController {
 
   @Get('fetch/:space')
   @UseGuards(AuthGuard('jwt'))
-  async fetchDrops(@Param() param, @Req() req, @Response() res, @Query() query) {
-    const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
+  async fetchDrops(@Param() param, @Query() query, presets = {} as ISettings, @Req() req?, @Response() res?) {
+    query.consumed = true;
+    const settings: ISettings = !!req ? req.user.settings.find(({ space }) => space === param.space) : presets;
+    const navigation = {};
+
+    await this.dropService.getDropSet({ space: param.space, owner: settings.owner }).then(dropSet => (query.endpoint = dropSet.endpoint));
 
     // fetch drops
-    query.consumed = true;
-    const response = await this.spaceRequestService.fetchHandler(settings, query, res);
-
-    // add fields
-    const drops: IDropItem[] = response[xPath[param.space]].map((item: IDropItem) => {
-      item.owner = req.user.username;
-      item.space = param.space;
-
-      if (!item.id) {
-        switch (item.space) {
-          case Sources.Spotify:
-            item.id = item['track'].id;
-            break;
-          default:
-            item.id = btoa(Math.random());
-        }
-      }
-      return item;
+    let items = await this.spaceRequestService.fetchHandler(settings, query, res).then(response => {
+      // todo: handle cursor for response without
+      Object.assign(navigation, { ...response.cursors, next: response.next });
+      return this.manipulatorService.convertDatesToIso(response[ResponseItemsPath[param.space]]);
     });
 
+    if (!!req) {
+      // map keys to dropSet, add all attributes from drops
+      const dropKeys = this.manipulatorService.mapDropKeys(items);
+      await this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys }).then(() => {
+        this.attributeService.addAttributes(this.manipulatorService.mapDropAttributes(items, dropKeys.arrayKeys, param.space));
+      });
+    }
+
+    const drops: IDropItem[] = this.manipulatorService.identifyDrops(param.space, settings.owner, items);
+
     // save the drops and add them to their drop set
-    const updatedDropSet = await this.dropService.addDrops(drops).then(dropSet => dropSet);
+    const updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, drops, navigation).then(dropSet => dropSet);
 
     // return the saved drop set
-    return res.status(HttpStatus.OK).json(updatedDropSet);
+    return !!res ? res.status(HttpStatus.OK).json(updatedDropSet) : null;
   }
 }

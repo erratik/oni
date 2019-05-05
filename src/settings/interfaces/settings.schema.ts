@@ -1,5 +1,5 @@
-import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
+import { Schema, Document } from 'mongoose';
 import { IToken } from '../../token/interfaces/tokens.schema';
 
 const AuthorizationSchema = new Schema(
@@ -30,6 +30,7 @@ const SettingsSchema = new Schema(
     owner: { type: String },
     authorization: { type: AuthorizationSchema },
     credentials: { type: CredentialsSchema },
+    cron: { type: String },
   },
   { timestamps: true }
 );
@@ -49,6 +50,7 @@ export interface ICredentials extends Document {
 export interface ISettings extends Document {
   space: string;
   owner: string;
+  cron: string;
   baseUrl: string;
   credentials?: ICredentials;
   authorization?: IAuthorization;

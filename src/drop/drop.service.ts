@@ -2,56 +2,52 @@ import { Injectable, Inject } from '@nestjs/common';
 import { LoggerService } from '../shared/services/logger.service';
 import { InjectionTokens } from '../app.constants';
 import { PassportLocalModel } from 'passport-local-mongoose';
-import { DropSchemaDto } from './dto/drops.dto';
 import { IDropService } from './interfaces/idrop.service';
 import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
 import { IDropSchema } from './interfaces/drop-schema.schema';
+import { AttributeService } from '../attributes/attributes.service';
 
 @Injectable()
 export class DropService implements IDropService {
   public constructor(
     @Inject(InjectionTokens.DropSetModel) private readonly dropSetModel: PassportLocalModel<IDropSet>,
     @Inject(InjectionTokens.DropItemModel) private readonly dropItemModel: PassportLocalModel<IDropItem>,
-    public logger: LoggerService
+    public logger: LoggerService,
+    public attributeService: AttributeService
   ) {}
 
   //? Create & Update
   //                                                                                                      //
 
-  public async addDrops(drops: IDropItem[]): Promise<IDropItem[]> {
-    const space = drops[0].space;
-    const owner = drops[0].owner;
-    return this.dropItemModel.collection
-      .insertMany(drops)
-      .then(async ({ insertedIds }) => {
-        const updatedDropSet = await this.upsertDropSet({ space, owner, drops: insertedIds });
-        return updatedDropSet;
-      })
-      .catch(async error => {
-        if (error.message.includes('id_1 dup key')) {
-          const drops = await this.dropItemModel.find({ space, owner }, {}, { _id: 1 });
-          const updatedDropSet = await this.upsertDropSet({ space, owner, drops: drops.map(d => d._id) });
-          return updatedDropSet;
-        }
-      });
+  public async addDrops(space: string, owner: string, drops: IDropItem[], navigation = {}): Promise<IDropItem[]> {
+    let skipUpdate = false;
+    const insert = await this.dropItemModel.collection.insert(drops).catch(e => {
+      if (e) {
+        skipUpdate = true;
+        this.logger.log(`[DropService]`, `No drops to add, they already exist`);
+        return this.dropSetModel.findOne({ space, owner }).then(dropSet => dropSet.toObject());
+      }
+    });
+    if (skipUpdate) {
+      return insert;
+    }
+    this.logger.log(`[DropService]`, `Added drops ${space} drop schema for ${owner}`);
+    return this.upsertDropSet(space, owner, {
+      space,
+      $addToSet: { drops: Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString()) },
+      navigation,
+    })
+      .then(dropSet => dropSet)
+      .catch(error => error.message);
   }
 
-  public async upsertDropSet(dropSchemaDto: DropSchemaDto): Promise<IDropSet> {
-    this.logger.log(`[DropService]`, `Upserting ${dropSchemaDto.space} drop schema for ${dropSchemaDto.owner}`);
+  public async upsertDropSet(space: string, owner: string, update = {}): Promise<IDropSet> {
+    this.logger.log(`[DropService]`, `Upserting ${space} drop schema for ${owner}`);
     return this.dropSetModel
-      .findOneAndUpdate(
-        { space: dropSchemaDto.space },
-        { space: dropSchemaDto.space, $addToSet: { drops: dropSchemaDto.drops.map(d => d._id) } },
-        { upsert: true, new: true, runValidators: true }
-      )
+      .findOneAndUpdate({ space, owner }, update, { upsert: true, new: true, runValidators: true })
       .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
-      .catch(error => console.error(error));
-  }
-
-  public async updateDropSchema(schema: DropSchemaDto): Promise<IDropSchema> {
-    debugger;
-    throw new Error('Method not implemented.');
+      .catch(error => error);
   }
 
   //                                                                                                      //

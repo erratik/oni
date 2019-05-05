@@ -1,6 +1,6 @@
 {
-  "watch": ["src/**/*"],
-  "ext": "ts",
-  "ignore": ["src/**/*.spec.ts"],
-  "exec": "npm run build && docker-compose restart oni"
+    "watch": ["src/**/*"],
+    "ext": "ts",
+    "ignore": ["src/**/*.spec.ts"],
+    "exec": "npm run build && sleep 1s && docker-compose restart oni"
 }

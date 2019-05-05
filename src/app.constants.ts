@@ -26,4 +26,5 @@ export enum InjectionTokens {
   SettingsModel = 'SettingsModelToken',
   DropItemModel = 'DropItemModelToken',
   DropSetModel = 'DropSetModelToken',
+  AttributeModel = 'AttributeModelToken',
 }
