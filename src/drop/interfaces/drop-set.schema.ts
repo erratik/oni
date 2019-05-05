@@ -1,6 +1,6 @@
 import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
-import DropSchemaSchema, { IDropSchema } from './drop-schema.schema';
+import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
 import { IDropItem } from './drop-item.schema';
 
 const DropSetSchema = new Schema(
@@ -15,10 +15,9 @@ const DropSetSchema = new Schema(
     owner: { type: String, required: true },
     space: { type: String, required: true },
     endpoint: { type: String, required: true },
-    schemas: { type: [DropSchemaSchema] },
-    stats: { type: Schema.Types.Mixed },
+    // stats: { type: Schema.Types.Mixed },
     navigation: { type: Schema.Types.Mixed },
-    keys: { type: [String] },
+    keys: { type: [String], unique: true },
   },
   { timestamps: true }
 );

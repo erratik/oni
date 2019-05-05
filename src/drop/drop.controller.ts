@@ -1,17 +1,18 @@
 import * as schedule from 'node-schedule';
 import * as moment from 'moment';
-import { Controller, Get, UseGuards, HttpStatus, Response, Param, Req, Query } from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, Response, Param, Req, Query, Body } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DropService } from './drop.service';
 import { ApiUseTags } from '@nestjs/swagger';
-import { ConfigService } from '../config/config.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { SpaceRequestService } from '../space/space-request.service';
 import { IDropItem } from './interfaces/drop-item.schema';
 import { ResponseItemsPath } from './drop.constants';
-import { DropManipulatorService } from './drop-manipulation.service';
+import { DatasetService } from '../shared/services/dataset.service';
 import { SettingsService } from '../settings/settings.service';
 import { AttributeService } from '../attributes/attributes.service';
+import { Sources } from '../app.constants';
+import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 
 @ApiUseTags('drops')
 @Controller('v1/drops')
@@ -21,10 +22,10 @@ export class DropController {
   };
   public settings;
   constructor(
-    private configService: ConfigService,
     private readonly dropService: DropService,
     private readonly settingsService: SettingsService,
-    private readonly manipulatorService: DropManipulatorService,
+    private readonly dropSchemaService: DropSchemaService,
+    private readonly datasetService: DatasetService,
     private readonly attributeService: AttributeService,
     private readonly spaceRequestService: SpaceRequestService
   ) {
@@ -42,6 +43,25 @@ export class DropController {
     })();
   }
 
+  @Get(':space/item')
+  @UseGuards(AuthGuard('jwt'))
+  async getOneDrop(@Param() param, @Req() req, @Response() res, @Query('schema') schema, @Body() query) {
+    return await this.dropService.getDrop({ ...query, space: param.space, owner: req.user.username }).then(async drop => {
+      if (!drop) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: `No drop found with query: ${JSON.stringify(query)}`,
+        });
+      } else {
+        if (schema) {
+          await this.dropSchemaService.getDropSchema({ space: param.space, owner: req.user.username, type: schema }).then(schema => {
+            drop = this.datasetService.buildDropWithSchema(param.space, drop, schema);
+          });
+        }
+        return res.status(HttpStatus.OK).json(drop);
+      }
+    });
+  }
+
   @Get(':space')
   @UseGuards(AuthGuard('jwt'))
   async getDropsBySpace(@Param() param, @Req() req, @Response() res): Promise<IDropItem[]> {
@@ -56,7 +76,7 @@ export class DropController {
     });
   }
 
-  @Get('set/:space')
+  @Get('drop/set/:space')
   @UseGuards(AuthGuard('jwt'))
   async getDropSet(@Param() param, @Req() req, @Response() res, @Query() query) {
     // todo: what if i want to query only some drops in the set... or project a specifc key?
@@ -82,27 +102,38 @@ export class DropController {
     const settings: ISettings = !!req ? req.user.settings.find(({ space }) => space === param.space) : presets;
     const navigation = {};
 
-    await this.dropService.getDropSet({ space: param.space, owner: settings.owner }).then(dropSet => (query.endpoint = dropSet.endpoint));
+    await this.dropService.getDropSet({ space: param.space, owner: settings.owner }).then(dropSet => {
+      query.endpoint = dropSet.endpoint;
+      if (param.space === Sources.Spotify) {
+        query.endpoint += `?after=${dropSet.navigation.after}`;
+      }
+    });
 
     // fetch drops
     let items = await this.spaceRequestService.fetchHandler(settings, query, res).then(response => {
-      // todo: handle cursor for response without
-      Object.assign(navigation, { ...response.cursors, next: response.next });
-      return this.manipulatorService.convertDatesToIso(response[ResponseItemsPath[param.space]]);
+      let drops = response[ResponseItemsPath[param.space]];
+      if (!drops) {
+        return res ? res.status(HttpStatus.OK).json({ message: `No new drops for ${param.space}` }) : null;
+      }
+      drops = this.datasetService.convertDatesToIso(param.space, drops);
+      Object.assign(navigation, this.datasetService.getCursors(param.space, drops));
+      return drops;
     });
 
-    if (!!req) {
+    if (items) {
       // map keys to dropSet, add all attributes from drops
-      const dropKeys = this.manipulatorService.mapDropKeys(items);
+      const dropKeys = this.datasetService.mapDropKeys(param.space, items);
       await this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys }).then(() => {
-        this.attributeService.addAttributes(this.manipulatorService.mapDropAttributes(items, dropKeys.arrayKeys, param.space));
+        this.attributeService.addAttributes(this.datasetService.mapDropAttributes(param.space, items, dropKeys.arrayKeys));
       });
+    } else {
+      debugger;
     }
 
-    const drops: IDropItem[] = this.manipulatorService.identifyDrops(param.space, settings.owner, items);
-
     // save the drops and add them to their drop set
-    const updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, drops, navigation).then(dropSet => dropSet);
+    const updatedDropSet = await this.dropService
+      .addDrops(param.space, settings.owner, this.datasetService.identifyDrops(param.space, settings.owner, items), navigation)
+      .then(dropSet => dropSet);
 
     // return the saved drop set
     return !!res ? res.status(HttpStatus.OK).json(updatedDropSet) : null;

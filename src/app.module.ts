@@ -22,9 +22,10 @@ import { SettingsController } from './settings/settings.controller';
 import { TokenModule } from './token/token.module';
 import { DropModule } from './drop/drop.module';
 import { AttributeModule } from './attributes/attributes.module';
+import { DropSchemaModule } from './drop-schemas/drop-schema.module';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule, DropModule, AttributeModule],
+  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule, DropModule, AttributeModule, DropSchemaModule],
   providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, LoggerService, ConfigService, AuthService],
 })
 export class AppModule implements NestModule {

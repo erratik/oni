@@ -23,9 +23,17 @@ export class AttributeService implements IAttributeService {
   }
 
   public async getAttributes(query: any, sorter = {}, projection = {}): Promise<IAttribute[]> {
-    this.logger.log(`[AttributeService]`, `Getting ${query.space} attributes`);
+    this.logger.log(`[AttributeService]`, `Getting attributes`);
     const attributes: IAttribute[] = await this.attributeModel.find(query, sorter, projection);
-    return attributes ? attributes.map(items => ({ ...items.toObject() })) : null;
+    return attributes ? attributes.map(item => ({ id: item.id, ...item.toObject() })) : null;
+  }
+
+  public async updateAttribute(query: any, update = {}, projection = {}): Promise<IAttribute[]> {
+    this.logger.log(`[AttributeService]`, `Upserting attributes`);
+    return this.attributeModel
+      .findOneAndUpdate(query, update, { upsert: true, runValidators: true })
+      .then((attribute: IAttribute) => ({ ...attribute.toObject() }))
+      .catch(error => error);
   }
 
   //                                                                                                      //

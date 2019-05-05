@@ -1,15 +1,15 @@
 import { ApiModelProperty } from '@nestjs/swagger';
 
-export class AttributeSchemaDto {
+export class DropSchemaDto {
   @ApiModelProperty()
-  readonly space: string;
+  space: string;
 
   @ApiModelProperty()
-  readonly path: string;
+  owner: string;
 
   @ApiModelProperty()
   type: string;
 
   @ApiModelProperty()
-  displayName: string;
+  keyMap: any[];
 }

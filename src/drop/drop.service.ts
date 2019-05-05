@@ -5,7 +5,7 @@ import { PassportLocalModel } from 'passport-local-mongoose';
 import { IDropService } from './interfaces/idrop.service';
 import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { IDropSchema } from './interfaces/drop-schema.schema';
+import { IDropSchema } from '../drop-schemas/interfaces/drop-schema.schema';
 import { AttributeService } from '../attributes/attributes.service';
 
 @Injectable()
@@ -32,7 +32,7 @@ export class DropService implements IDropService {
     if (skipUpdate) {
       return insert;
     }
-    this.logger.log(`[DropService]`, `Added drops ${space} drop schema for ${owner}`);
+    this.logger.log(`[DropService]`, `Added (${insert.insertedIds.length}) drops ${space} drop schema for ${owner}`);
     return this.upsertDropSet(space, owner, {
       space,
       $addToSet: { drops: Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString()) },
@@ -70,6 +70,12 @@ export class DropService implements IDropService {
     this.logger.log(`[DropService]`, `Getting ${query.space} drop set for ${query.owner}`);
     const dropSet: IDropSet = await this.dropSetModel.findOne(query);
     return dropSet ? { ...dropSet.toObject() } : null;
+  }
+
+  public async getDrop(query: any, projection = {}): Promise<IDropItem> {
+    this.logger.log(`[DropService]`, `Getting drop for ${query.owner}`);
+    const drop: IDropSet = await this.dropItemModel.findOne(query);
+    return drop ? { ...drop.toObject() } : null;
   }
   //                                                                                                      //
   //! Delete

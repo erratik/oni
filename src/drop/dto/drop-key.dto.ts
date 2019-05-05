@@ -5,7 +5,7 @@ export class DropKeyDto {
   readonly type: string;
 
   @ApiModelProperty()
-  readonly path: string;
+  path: string;
 
   @ApiModelProperty()
   format: string;
@@ -14,5 +14,11 @@ export class DropKeyDto {
   enabled: boolean;
 
   @ApiModelProperty()
-  readonly attribute: string;
+  displayName: boolean;
+
+  @ApiModelProperty()
+  broadcast?: boolean;
+
+  @ApiModelProperty()
+  attribute?: string;
 }

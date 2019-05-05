@@ -1,8 +1,8 @@
 import { ApiModelProperty } from '@nestjs/swagger';
 import { IDropItem } from '../interfaces/drop-item.schema';
-import { IDropSchema } from '../../drop/interfaces/drop-schema.schema';
+import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
 
-export class DropSchemaDto {
+export class DropSetDto {
   @ApiModelProperty()
   owner: string;
 

@@ -5,7 +5,7 @@ const AttributeSchema = new Schema({
   space: { type: String },
   type: { type: String, required: true },
   path: { type: String, required: true, unique: true },
-  // displayName: { type: String, required: true },
+  displayName: { type: String, required: true },
   // attribute: {
   //   type: Schema.Types.ObjectId,
   //   ref: 'Attributes',
@@ -16,6 +16,7 @@ export interface IAttribute extends Document {
   space: string;
   type: string;
   path: string;
+  displayName: string;
 }
 
 AttributeSchema.index({ path: 1 }).plugin(passportLocalMongoose);

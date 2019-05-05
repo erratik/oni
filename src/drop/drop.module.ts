@@ -17,7 +17,9 @@ import { dropSetModelMongoDbProvider } from '../shared/repository/providers/mong
 import { dropItemModelMongoDbProvider } from '../shared/repository/providers/mongo.drop-items.provider';
 import { attributeModelMongoDbProvider } from '../shared/repository/providers/mongo.attributes.provider';
 import { AttributeService } from '../attributes/attributes.service';
-import { DropManipulatorService } from './drop-manipulation.service';
+import { DatasetService } from '../shared/services/dataset.service';
+import { dropSchemaModelMongoDbProvider } from '../shared/repository/providers/mongo.drop-schema.provider';
+import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 
 @Module({
   imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' }), HttpModule],
@@ -29,6 +31,7 @@ import { DropManipulatorService } from './drop-manipulation.service';
     ...dropItemModelMongoDbProvider,
     ...userModelMongoDbProvider,
     ...attributeModelMongoDbProvider,
+    ...dropSchemaModelMongoDbProvider,
     DropService,
     AuthService,
     UserService,
@@ -39,7 +42,8 @@ import { DropManipulatorService } from './drop-manipulation.service';
     DropService,
     JwtStrategy,
     SpaceRequestService,
-    DropManipulatorService,
+    DropSchemaService,
+    DatasetService,
   ],
   exports: [DropService],
 })
