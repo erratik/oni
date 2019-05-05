@@ -9,7 +9,7 @@ import { flatten, camelize } from '../helpers/dataset.helpers';
 import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 import { IDropKey, IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
-import { TimestampField, TimestampFormat } from '../../drop/drop.constants';
+import { TimestampField, TimestampFormat, DropKeyType } from '../../drop/drop.constants';
 
 @Injectable()
 export class DatasetService {
@@ -32,30 +32,34 @@ export class DatasetService {
   }
 
   public identifyDrops(space: string, owner: string, drops: IDropItem[]): IDropItem[] {
-    return drops.map((item: IDropItem) => {
-      if (!item.id) {
-        switch (space) {
-          case Sources.Spotify:
-            item.id = btoa(item[TimestampField[space]] + item['track']['id']);
-            break;
-          default:
-            item.id = btoa(Math.random());
-        }
-      }
-      return Object.assign(item, { owner, space });
-    });
+    return !!drops
+      ? drops.map((item: IDropItem) => {
+          if (!item.id) {
+            switch (space) {
+              case Sources.Spotify:
+                item.id = btoa(item[TimestampField[space]] + item['track']['id']);
+                break;
+              default:
+                item.id = btoa(Math.random());
+            }
+          }
+          return Object.assign(item, { owner, space });
+        })
+      : null;
   }
 
   public buildDropWithSchema(space: string, drop: IDropItem, schema: IDropSchema): any {
     const dropified = {};
-    schema.keyMap.forEach(({ path, format, displayName }) => {
-      const isArray: boolean = /(\|)([a-z_.]*)+/.test(path);
-      const dotPath = path.replace(/(\|)([a-z_.]*)+/, '');
-      const preKeyName = camelize(dotPath);
-      dropified[preKeyName] = { label: displayName };
-      if (isArray || format === AttributeType.array) {
+    schema.keyMap.forEach(dropKey => {
+      const isArray: boolean = /(\|)([a-z_.]*)+/.test(dropKey.path);
+      const dotPath = dropKey.path.replace(/(\|)([a-z_.]*)+/, '');
+
+      const preKeyName = !!dropKey.attribute && dropKey.type === DropKeyType.Standard ? dropKey.attribute['standardName'] : camelize(dotPath);
+      dropified[preKeyName] = { label: dropKey.displayName };
+
+      if (isArray || dropKey.format === AttributeType.array) {
         const dropArray: any[] = dotProp.get(drop, dotPath);
-        const arrayKey = path.split('|').pop();
+        const arrayKey = dropKey.path.split('|').pop();
         dropified[preKeyName].value = dropArray.map(array => array[arrayKey])[0];
       } else {
         dropified[preKeyName].value = dotProp.get(drop, dotPath);
@@ -86,9 +90,8 @@ export class DatasetService {
       key =>
         ({
           space,
-          type: AttributeType.array,
+          format: AttributeType.array,
           path: key,
-          // displayName: key,
         } as IAttribute)
     );
 
@@ -108,26 +111,21 @@ export class DatasetService {
     return drops.map(drop => {
       const flattenedDrop = flatten(drop);
       const keys: IAttribute[] = Object.keys(flattenedDrop).map(path => {
-        // see if we can find the type
         const value: string = flattenedDrop[path];
         const isDate: boolean = /\d{4}-\d{2}-\d{2}/.test(value);
         const inArray: boolean = /\[[0-9]+\]*/.test(path);
-        let determinedType: string = isDate ? AttributeType.date : typeof flattenedDrop[path];
+        let determinedFormat: string = isDate ? AttributeType.date : typeof flattenedDrop[path];
 
         if (inArray) {
           path = path.replace(/\[[0-9]+\]\.*/, '|');
           const isArray: boolean = /\|+$/.test(path);
           path = path.replace(/\|+$/, '');
-          determinedType = isArray ? AttributeType.array : determinedType;
-          // debugger;
-        } else {
-          // debugger;
+          determinedFormat = isArray ? AttributeType.array : determinedFormat;
         }
         return {
           path,
           space,
-          type: determinedType,
-          // displayName: path,
+          format: determinedFormat,
         } as IAttribute;
       });
       if (dropKeySets) {

@@ -12,3 +12,8 @@ export enum TimestampFormat {
   instagram = 'x',
   spotify = 'YYYY-MM-DDTHH:mm:ss.SSSZ',
 }
+
+export enum DropKeyType {
+  Standard = 'standard',
+  Custom = 'custom',
+}

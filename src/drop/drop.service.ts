@@ -62,7 +62,7 @@ export class DropService implements IDropService {
 
   public async getDropsBySpace(query: any, sorter = {}, projection = {}): Promise<IDropItem[]> {
     this.logger.log(`[DropService]`, `Getting ${query.space} drops for ${query.owner}`);
-    const dropItems: IDropItem[] = await this.dropItemModel.find(query, sorter, projection);
+    const dropItems: IDropItem[] = await this.dropItemModel.find(query, projection).sort(sorter);
     return dropItems ? dropItems.map(items => ({ ...items.toObject() })) : null;
   }
 
@@ -72,10 +72,19 @@ export class DropService implements IDropService {
     return dropSet ? { ...dropSet.toObject() } : null;
   }
 
-  public async getDrop(query: any, projection = {}): Promise<IDropItem> {
+  public async getDrop(query: any, sorter = {}, projection = {}): Promise<IDropItem> {
     this.logger.log(`[DropService]`, `Getting drop for ${query.owner}`);
-    const drop: IDropSet = await this.dropItemModel.findOne(query);
-    return drop ? { ...drop.toObject() } : null;
+    const dropItem: IDropSet = await this.dropItemModel.findOne(query, projection).sort(sorter);
+    return dropItem ? { ...dropItem.toObject() } : null;
+  }
+
+  public async getDrops(query: any, limit = 20, sorter = {}, projection = {}): Promise<IDropItem[]> {
+    this.logger.log(`[DropService]`, `Getting drop for ${query.owner}`);
+    const dropItems: IDropSet[] = await this.dropItemModel
+      .find(query, projection)
+      .sort(sorter)
+      .limit(limit);
+    return dropItems ? dropItems.map(items => ({ ...items.toObject() })) : null;
   }
   //                                                                                                      //
   //! Delete

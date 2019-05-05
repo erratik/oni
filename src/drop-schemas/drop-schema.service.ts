@@ -3,7 +3,7 @@ import { LoggerService } from '../shared/services/logger.service';
 import { InjectionTokens } from '../app.constants';
 import { PassportLocalModel } from 'passport-local-mongoose';
 import { IDropSchemaService } from './interfaces/idropschema.service';
-import { IDropSchema } from './interfaces/drop-schema.schema';
+import { IDropSchema, IDropKey } from './interfaces/drop-schema.schema';
 import { DropSchemaDto } from './dto/drop-schema.dto';
 import { ISettings } from '../settings/interfaces/settings.schema';
 
@@ -30,10 +30,11 @@ export class DropSchemaService implements IDropSchemaService {
     throw new Error('Method not implemented.');
   }
 
-  public async getDropSchema(query: any, projection = {}): Promise<IDropSchema> {
+  public async getDropSchema(query: any, sorter = {}, projection = {}): Promise<IDropSchema> {
     this.logger.log(`[DropSchemaService]`, `Getting ${query.space} dropSchemas`);
-    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, projection);
-    return dropSchema ? { ...dropSchema.toObject(), keyMap: dropSchema.keyMap.map(k => k.toObject()) } : null;
+    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, sorter, projection).populate('keyMap.attribute');
+    const keyMap: IDropKey[] = dropSchema.keyMap.map(k => k.toObject());
+    return dropSchema ? { ...dropSchema.toObject(), keyMap } : null;
   }
 
   public async getDropSchemas(query: any, sorter = {}, projection = {}): Promise<IDropSchema[]> {

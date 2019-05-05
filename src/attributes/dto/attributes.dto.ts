@@ -8,7 +8,7 @@ export class AttributeSchemaDto {
   readonly path: string;
 
   @ApiModelProperty()
-  type: string;
+  format: string;
 
   @ApiModelProperty()
   displayName: string;

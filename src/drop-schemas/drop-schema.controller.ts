@@ -1,11 +1,11 @@
-import { Controller, Get, UseGuards, Response, Param, Query, HttpStatus, Delete, Body, Req, Post, Put } from '@nestjs/common';
+import { Controller, Get, UseGuards, Response, Param, Query, HttpStatus, Body, Req, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DropSchemaService } from './drop-schema.service';
 import { ApiUseTags } from '@nestjs/swagger';
 import { DropSchemaDto } from './dto/drop-schema.dto';
 import { AttributeService } from '../attributes/attributes.service';
 import { DropKeyDto } from '../drop/dto/drop-key.dto';
-import { IDropKey } from './interfaces/drop-schema.schema';
+import { DropKeyType } from '../drop/drop.constants';
 
 @ApiUseTags('schemas')
 @Controller('v1/schemas')
@@ -14,7 +14,7 @@ export class DropSchemaController {
 
   @Get('')
   @UseGuards(AuthGuard('jwt'))
-  async getDropSchemas(@Param() param, @Query() query, @Req() req, @Response() res) {
+  async getDropSchemas(@Query() query, @Req() req, @Response() res) {
     return await this.dropSchemaService.getDropSchemas({ owner: req.user.username }).then(dropSchemas => {
       if (!dropSchemas) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
@@ -50,16 +50,17 @@ export class DropSchemaController {
       type: dropSchemaDto.type ? dropSchemaDto.type : 'default',
     };
 
-    // todo : put this in a service
+    // todo : put this in a service & populate when schema are retrieved so we don't need to getAttributes to map.
     // get attributes from keyMap and populate dropKey, update if needed
     if (dropSchemaDto.keyMap) {
       await this.attributeService.getAttributes({ _id: { $in: dropSchemaDto.keyMap.map(({ attribute }) => attribute) } }).then(attributes => {
         dropSchemaDto.keyMap = dropSchemaDto.keyMap.map((dropKey: DropKeyDto, i) => {
           const attribute = attributes.find(({ id }) => dropKey.attribute === id);
           if (dropKey.broadcast && dropSchemaDto.keyMap[i] === 'displayName') {
+            //? is it really useful to change the displayName, wouldn't it be more versatile to leave it to the drop to use its own?
             this.attributeService.updateAttribute({ _id: dropKey.attribute }, { displayName: dropKey.displayName });
           }
-          return { ...dropKey, format: attribute.type, path: attribute.path };
+          return { ...dropKey, format: attribute.format, path: attribute.path };
         });
       });
     }
@@ -68,7 +69,10 @@ export class DropSchemaController {
       ...fields,
       keyMap: dropSchemaDto.keyMap.map(dropKey => {
         delete dropKey.broadcast;
-        delete dropKey.attribute;
+        if (dropKey.type === DropKeyType.Custom) {
+          delete dropKey.attribute;
+        }
+        dropKey.path = dropKey.path.replace(`.${dropKey.type}`, '');
         return dropKey;
       }),
     };

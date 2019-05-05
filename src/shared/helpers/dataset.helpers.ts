@@ -36,4 +36,4 @@ export const flatten = data => {
   return result;
 };
 
-export const camelize = input => input.toLowerCase().replace(/\_\.(.)/g, (match, group1) => group1.toUpperCase());
+export const camelize = input => input.toLowerCase().replace(/[_\.](.)/g, (match, group1) => group1.toUpperCase());

@@ -7,7 +7,7 @@ import { ApiUseTags } from '@nestjs/swagger';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { SpaceRequestService } from '../space/space-request.service';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { ResponseItemsPath } from './drop.constants';
+import { ResponseItemsPath, TimestampField } from './drop.constants';
 import { DatasetService } from '../shared/services/dataset.service';
 import { SettingsService } from '../settings/settings.service';
 import { AttributeService } from '../attributes/attributes.service';
@@ -36,30 +36,11 @@ export class DropController {
         someSettings.forEach(settings => {
           that.runSchedules[settings.space] = schedule.scheduleJob(settings.cron, function() {
             that.fetchDrops({ space: settings.space }, {}, settings).catch(error => console.log(error));
-            console.log(`⏲ Schedule ran for ${settings.space}, next run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
+            console.log(`⏲  Schedule ran for ${settings.space}, next run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
           });
         });
       });
     })();
-  }
-
-  @Get(':space/item')
-  @UseGuards(AuthGuard('jwt'))
-  async getOneDrop(@Param() param, @Req() req, @Response() res, @Query('schema') schema, @Body() query) {
-    return await this.dropService.getDrop({ ...query, space: param.space, owner: req.user.username }).then(async drop => {
-      if (!drop) {
-        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `No drop found with query: ${JSON.stringify(query)}`,
-        });
-      } else {
-        if (schema) {
-          await this.dropSchemaService.getDropSchema({ space: param.space, owner: req.user.username, type: schema }).then(schema => {
-            drop = this.datasetService.buildDropWithSchema(param.space, drop, schema);
-          });
-        }
-        return res.status(HttpStatus.OK).json(drop);
-      }
-    });
   }
 
   @Get(':space')
@@ -76,7 +57,50 @@ export class DropController {
     });
   }
 
-  @Get('drop/set/:space')
+  @Get(':space/item')
+  @UseGuards(AuthGuard('jwt'))
+  async getOneDrop(@Param() param, @Req() req, @Response() res, @Query('schema') type, @Body() query) {
+    let sorter = {};
+    sorter[TimestampField[param.space]] = -1;
+    return await this.dropService.getDrop({ ...query, space: param.space, owner: req.user.username }, sorter).then(async drop => {
+      if (!drop) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: `No drop found with query: ${JSON.stringify(query)}`,
+        });
+      } else {
+        if (type) {
+          await this.dropSchemaService.getDropSchema({ space: param.space, owner: req.user.username, type }).then(schema => {
+            drop = this.datasetService.buildDropWithSchema(param.space, drop, schema);
+          });
+        }
+        return res.status(HttpStatus.OK).json(drop);
+      }
+    });
+  }
+
+  @Get(':space/items')
+  @UseGuards(AuthGuard('jwt'))
+  async getSomeDrops(@Param() param, @Req() req, @Response() res, @Query('schema') type, @Query('limit') limit: number, @Body() query) {
+    let sorter = {};
+    sorter[TimestampField[param.space]] = -1;
+    limit = Number(limit);
+    return await this.dropService.getDrops({ space: param.space, owner: req.user.username }, limit, sorter).then(async drops => {
+      if (!drops) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: `No drop found with query: ${JSON.stringify(query)}`,
+        });
+      } else {
+        if (type) {
+          await this.dropSchemaService.getDropSchema({ space: param.space, owner: req.user.username, type }).then(schema => {
+            drops = drops.map(drop => this.datasetService.buildDropWithSchema(param.space, drop, schema));
+          });
+        }
+        return res.status(HttpStatus.OK).json(drops);
+      }
+    });
+  }
+
+  @Get(':space/set')
   @UseGuards(AuthGuard('jwt'))
   async getDropSet(@Param() param, @Req() req, @Response() res, @Query() query) {
     // todo: what if i want to query only some drops in the set... or project a specifc key?
@@ -120,20 +144,22 @@ export class DropController {
       return drops;
     });
 
+    let updatedDropSet;
+
     if (items) {
       // map keys to dropSet, add all attributes from drops
       const dropKeys = this.datasetService.mapDropKeys(param.space, items);
       await this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys }).then(() => {
         this.attributeService.addAttributes(this.datasetService.mapDropAttributes(param.space, items, dropKeys.arrayKeys));
       });
-    } else {
-      debugger;
-    }
 
-    // save the drops and add them to their drop set
-    const updatedDropSet = await this.dropService
-      .addDrops(param.space, settings.owner, this.datasetService.identifyDrops(param.space, settings.owner, items), navigation)
-      .then(dropSet => dropSet);
+      // save the drops and add them to their drop set
+      updatedDropSet = await this.dropService
+        .addDrops(param.space, settings.owner, this.datasetService.identifyDrops(param.space, settings.owner, items), navigation)
+        .then(dropSet => dropSet);
+    } else {
+      updatedDropSet = { message: 'nothing to update' };
+    }
 
     // return the saved drop set
     return !!res ? res.status(HttpStatus.OK).json(updatedDropSet) : null;

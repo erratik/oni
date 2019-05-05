@@ -3,20 +3,20 @@ import * as passportLocalMongoose from 'passport-local-mongoose';
 
 const AttributeSchema = new Schema({
   space: { type: String },
-  type: { type: String, required: true },
+  format: { type: String, required: true },
+  type: { type: String, required: true, default: 'custom' },
   path: { type: String, required: true, unique: true },
   displayName: { type: String, required: true },
-  // attribute: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: 'Attributes',
-  // },
+  standardName: { type: String },
 });
 
 export interface IAttribute extends Document {
   space: string;
-  type: string;
+  format: string;
   path: string;
   displayName: string;
+  type: string;
+  standardName?: string;
 }
 
 AttributeSchema.index({ path: 1 }).plugin(passportLocalMongoose);

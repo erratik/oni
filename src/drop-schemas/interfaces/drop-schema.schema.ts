@@ -2,18 +2,21 @@ import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
 import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
 
-const DropKeySchema = new Schema({
-  format: { type: String, required: true },
-  type: { type: String, required: true },
-  path: { type: String, required: true, unique: true },
-  enabled: { type: Boolean, required: true },
-  displayName: { type: String, required: true },
-  name: { type: String, required: true },
-  attribute: {
-    type: Schema.Types.ObjectId,
-    ref: 'Attributes',
+const DropKeySchema = new Schema(
+  {
+    format: { type: String, required: true },
+    type: { type: String, required: true },
+    path: { type: String, required: true, unique: true },
+    enabled: { type: Boolean, required: true },
+    displayName: { type: String, required: true },
+    name: { type: String, required: true },
+    attribute: {
+      type: Schema.Types.ObjectId,
+      ref: 'Attributes',
+    },
   },
-});
+  { _id: false }
+);
 
 const DropSchema = new Schema(
   {
@@ -29,9 +32,9 @@ export interface IDropKey extends Document {
   format: string;
   type: string;
   path: string;
-  name: string;
   displayName: string;
   enabled: boolean;
+  attribute?: string;
 }
 
 export interface IDropSchema extends Document {
