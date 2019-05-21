@@ -25,7 +25,19 @@ import { AttributeModule } from './attributes/attributes.module';
 import { DropSchemaModule } from './drop-schemas/drop-schema.module';
 
 @Module({
-  imports: [StatusModule, VersionModule, ConfigModule, UserModule, AuthModule, SettingsModule, SpaceModule, DropModule, AttributeModule, DropSchemaModule],
+  imports: [
+    StatusModule,
+    VersionModule,
+    ConfigModule,
+    UserModule,
+    AuthModule,
+    SettingsModule,
+    SpaceModule,
+    DropModule,
+    AttributeModule,
+    TokenModule,
+    DropSchemaModule,
+  ],
   providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, LoggerService, ConfigService, AuthService],
 })
 export class AppModule implements NestModule {

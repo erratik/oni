@@ -1892,6 +1892,11 @@ globals@^9.18.0:
   version "9.18.0"
   resolved "https://registry.yarnpkg.com/globals/-/globals-9.18.0.tgz#aa3896b3e69b487f17e31ed2143d69a8e30c2d8a"
 
+google-fit-activity-types@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/google-fit-activity-types/-/google-fit-activity-types-0.1.0.tgz#833b1c5d52088dea7848039f5c080259d95962c5"
+  integrity sha1-gzscXVIIjep4SAOfXAgCWdlZYsU=
+
 got@^6.7.1:
   version "6.7.1"
   resolved "https://registry.yarnpkg.com/got/-/got-6.7.1.tgz#240cd05785a9a18e561dc1b44b41c763ef1e8db0"

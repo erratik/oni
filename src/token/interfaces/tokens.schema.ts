@@ -4,7 +4,7 @@ import * as passportLocalMongoose from 'passport-local-mongoose';
 const TokenSchema = new Schema(
   {
     access_token: { type: String, required: true, unique: true },
-    refresh_token: { type: String, unique: true },
+    refresh_token: { type: String },
     owner: { type: String, required: true },
     space: { type: String, required: true },
     token_type: { type: String },

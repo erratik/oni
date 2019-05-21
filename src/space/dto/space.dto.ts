@@ -8,5 +8,8 @@ export class SpaceDto {
   readonly name: string;
 
   @ApiModelProperty()
-  readonly icon: string;
+  readonly icon?: string;
+
+  @ApiModelProperty()
+  readonly requests?: any[];
 }

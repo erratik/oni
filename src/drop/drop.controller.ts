@@ -1,6 +1,6 @@
 import * as schedule from 'node-schedule';
 import * as moment from 'moment';
-import { Controller, Get, UseGuards, HttpStatus, Response, Param, Req, Query, Body } from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, Response, Param, Req, Query, Body, Post } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DropService } from './drop.service';
 import { ApiUseTags } from '@nestjs/swagger';
@@ -13,6 +13,8 @@ import { SettingsService } from '../settings/settings.service';
 import { AttributeService } from '../attributes/attributes.service';
 import { Sources } from '../app.constants';
 import { DropSchemaService } from '../drop-schemas/drop-schema.service';
+import { DropSetDto } from './dto/drops.dto';
+import { IDropSet } from './interfaces/drop-set.schema';
 
 @ApiUseTags('drops')
 @Controller('v1/drops')
@@ -119,28 +121,69 @@ export class DropController {
     });
   }
 
+  @Post(':space/set')
+  @UseGuards(AuthGuard('jwt'))
+  async addDropSet(@Param() param, @Req() req, @Response() res, @Query() query, @Body() dropSetDto: DropSetDto) {
+    const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
+    return await this.dropService.upsertDropSet(param.space, settings.owner, dropSetDto).then(dropSet => {
+      if (!dropSet) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: `No drop set for ${req.user.username}`,
+        });
+      } else {
+        return res.status(HttpStatus.OK).json(dropSet);
+      }
+    });
+  }
+
+  // todo: extract to mini controller for fetching only
   @Get('fetch/:space')
   @UseGuards(AuthGuard('jwt'))
   async fetchDrops(@Param() param, @Query() query, presets = {} as ISettings, @Req() req?, @Response() res?) {
     query.consumed = true;
     const settings: ISettings = !!req ? req.user.settings.find(({ space }) => space === param.space) : presets;
-    const navigation = {};
+    let navigation = {};
+    let body = {};
 
-    await this.dropService.getDropSet({ space: param.space, owner: settings.owner }).then(dropSet => {
+    await this.dropService.getDropSet({ space: param.space, owner: settings.owner }).then((dropSet: IDropSet) => {
+      //todo put this in a service
+      if (!dropSet) {
+        return;
+      } else if (!!dropSet.request) {
+        body = dropSet.request;
+      }
+
       query.endpoint = dropSet.endpoint;
-      if (param.space === Sources.Spotify) {
-        query.endpoint += `?after=${dropSet.navigation.after}`;
+
+      switch (param.space) {
+        case Sources.Spotify:
+          query.endpoint += `?after=${dropSet.navigation.after}`;
+          break;
+        case Sources.GoogleApi:
+          navigation = {
+            after: dropSet.navigation.after + 86400000,
+            before: dropSet.navigation.before + 86400000,
+          };
+          body = { ...body, startTimeMillis: dropSet.navigation.after, endTimeMillis: dropSet.navigation.before };
+          break;
+        default:
+          break;
       }
     });
 
     // fetch drops
-    let items = await this.spaceRequestService.fetchHandler(settings, query, res).then(response => {
+    let items = await this.spaceRequestService.fetchHandler(settings, query, res, body).then(response => {
       let drops = response[ResponseItemsPath[param.space]];
       if (!drops) {
         return res ? res.status(HttpStatus.OK).json({ message: `No new drops for ${param.space}` }) : null;
+      } else if (param.space === Sources.GoogleApi) {
+        drops = Array.prototype.concat
+          .apply([], drops.map(bucket => Array.prototype.concat.apply([], bucket.dataset.map(({ point }) => point))))
+          .map(someDrop => ({ ...someDrop, value: someDrop.value[0] }));
+      } else {
+        Object.assign(navigation, this.datasetService.getCursors(param.space, drops));
       }
       drops = this.datasetService.convertDatesToIso(param.space, drops);
-      Object.assign(navigation, this.datasetService.getCursors(param.space, drops));
       return drops;
     });
 

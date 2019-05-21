@@ -10,17 +10,20 @@ import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 import { IDropKey, IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
 import { TimestampField, TimestampFormat, DropKeyType } from '../../drop/drop.constants';
+import * as activityTypes from 'google-fit-activity-types';
 
 @Injectable()
 export class DatasetService {
   public constructor(public logger: LoggerService) {}
 
   public convertDatesToIso(space: string, data: IDropItem[]): IDropItem[] {
+    const fields = TimestampField[space].split(',');
     data = data.map(drop => {
-      drop[TimestampField[space]] = moment(
-        drop[TimestampField[space]].length === 10 ? drop[TimestampField[space]] * 1000 : drop[TimestampField[space]],
-        TimestampFormat[space]
-      ).toISOString();
+      fields.forEach(field => {
+        let timestamp: any = drop[field].length === 10 ? drop[field] * 1000 : drop[field];
+        timestamp = space === Sources.GoogleApi ? timestamp.substring(0, 13) : timestamp;
+        drop[field] = moment(timestamp, TimestampFormat[space]).toISOString();
+      });
       return drop;
     });
     return !!data ? data : [];
@@ -63,6 +66,13 @@ export class DatasetService {
         dropified[preKeyName].value = dropArray.map(array => array[arrayKey])[0];
       } else {
         dropified[preKeyName].value = dotProp.get(drop, dotPath);
+      }
+      switch (space) {
+        case Sources.GoogleApi:
+          dropified[preKeyName].value = dropified[preKeyName].label === 'Activity' ? activityTypes[dropified[preKeyName].value] : dropified[preKeyName].value;
+          break;
+        default:
+          break;
       }
     });
     return dropified;

@@ -17,7 +17,8 @@ const DropSetSchema = new Schema(
     endpoint: { type: String, required: true },
     // stats: { type: Schema.Types.Mixed },
     navigation: { type: Schema.Types.Mixed },
-    keys: { type: [String], unique: true },
+    type: { type: String, default: 'default' },
+    request: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );
@@ -26,10 +27,9 @@ export interface IDropSet extends Document {
   owner: string;
   space: string;
   endpoint: string;
-  drops?: IDropItem[];
-  schemas?: IDropSchema[];
-  keys: string[];
+  request: any[];
   navigation: any;
+  drops?: IDropItem[];
 }
 
 DropSetSchema.plugin(passportLocalMongoose);

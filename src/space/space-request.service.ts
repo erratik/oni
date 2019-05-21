@@ -1,11 +1,11 @@
 import * as superagent from 'superagent';
 import * as btoa from 'btoa';
-import { Injectable, HttpStatus, Response } from '@nestjs/common';
+import { Injectable, HttpStatus, Response, Body } from '@nestjs/common';
 import { LoggerService } from '../shared/services/logger.service';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { TokenService } from '../token/token.service';
 import { ConfigService } from '../config/config.service';
-import { QueryRequestSources as SpacesV1 } from './space.constants';
+import { QueryRequestSources as SpacesV1, DataMethod } from './space.constants';
 
 @Injectable()
 export class SpaceRequestService {
@@ -24,11 +24,19 @@ export class SpaceRequestService {
     return url + '?' + uri;
   }
 
-  public getData(settings: ISettings, url: string): Promise<any> {
-    // return settings.authorization.info.token_type === 'Bearer'
-    return this.spacesV1.some(source => source !== settings.space)
-      ? superagent.get(url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
-      : superagent.get(this.composeUrl(url, { access_token: settings.authorization.info.access_token }));
+  public getData(settings: ISettings, options: any): Promise<any> {
+    //todo interface for options
+
+    if (DataMethod[settings.space] === 'post') {
+      return superagent
+        .post(options.url)
+        .set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
+        .send(options.body);
+    } else {
+      return this.spacesV1.some(source => source === settings.space)
+        ? superagent.get(this.composeUrl(options.url, { access_token: settings.authorization.info.access_token }))
+        : superagent.get(options.url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token });
+    }
   }
 
   public refreshToken(settings: ISettings, url: string): any {
@@ -46,7 +54,7 @@ export class SpaceRequestService {
       .then(async result => {
         this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings);
         settings.authorization.info.access_token = result.body.access_token;
-        return this.getData(settings, url);
+        return this.getData(settings, { url });
       });
   }
 
@@ -70,14 +78,15 @@ export class SpaceRequestService {
           .field('redirect_uri', `${config.baseUrl}/spaces/callback/${settings.space}`)
           .field('code', code);
 
-    return request.then(async result => {
-      const token = await this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings).then(token => token);
-      debugger;
-      return token;
-    });
+    return request
+      .then(async result => {
+        const token = await this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings).then(token => token);
+        return token;
+      })
+      .catch(({ response }) => ({ error: response.error, body: response.body }));
   }
 
-  public async fetchHandler(settings: ISettings, query: any, @Response() res) {
+  public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body?) {
     if (!settings && !!res) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} settings for found for ${settings.owner}` });
     }
@@ -93,7 +102,7 @@ export class SpaceRequestService {
     if (isTokenExpired && !!token.refresh_token) {
       return await this.refreshToken(settings, url).catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
     } else {
-      const receivedData = this.getData(settings, url);
+      const receivedData = this.getData(settings, { url, body });
       return !query.consumed
         ? await receivedData
             .then(({ body }) => (!res ? null : res.status(HttpStatus.OK).json(body)))

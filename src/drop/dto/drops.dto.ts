@@ -7,9 +7,6 @@ export class DropSetDto {
   owner: string;
 
   @ApiModelProperty()
-  readonly id?: string;
-
-  @ApiModelProperty()
   readonly space: string;
 
   @ApiModelProperty()
@@ -26,7 +23,4 @@ export class DropSetDto {
 
   @ApiModelProperty()
   readonly navigation?: any;
-
-  @ApiModelProperty()
-  readonly keys?: string[];
 }

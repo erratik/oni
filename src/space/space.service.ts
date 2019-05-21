@@ -47,10 +47,17 @@ export class SpaceService implements ISpacesService {
 
   public async update(spaceDto: SpaceDto): Promise<ISpace> {
     this.logger.log(`[SpaceService]`, `Updating Space: ${spaceDto.name}`);
+    const newSpaceDto = { ...spaceDto };
+    delete newSpaceDto.requests;
+
     return this.spaceModel
-      .findOneAndUpdate({ name: spaceDto.name }, spaceDto, { upsert: true, new: true, runValidators: true })
+      .findOneAndUpdate(
+        { name: spaceDto.name },
+        { ...newSpaceDto, $addToSet: { requests: spaceDto.requests } },
+        { upsert: true, new: true, runValidators: true }
+      )
       .then((space: ISpace) => ({ ...space.toObject() }))
-      .catch(error => console.error(error));
+      .catch(error => error);
   }
 
   public async updateProfile(name: string, owner: string, profile: any): Promise<ISpace> {
@@ -58,6 +65,14 @@ export class SpaceService implements ISpacesService {
     profile.owner = owner;
     return this.spaceModel
       .findOneAndUpdate({ name }, { name, $addToSet: { profiles: profile } }, { runValidators: true })
+      .then(space => ({ ...space.toObject() }))
+      .catch(error => console.error(error));
+  }
+
+  public async addRequest(name: string, owner: string, request: any): Promise<ISpace> {
+    this.logger.log(`[SpaceService]`, `Updating ${owner}'s ${name} requests`);
+    return this.spaceModel
+      .findOneAndUpdate({ name }, { name, $addToSet: { requests: request } }, { runValidators: true })
       .then(space => ({ ...space.toObject() }))
       .catch(error => console.error(error));
   }

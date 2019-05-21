@@ -8,6 +8,7 @@ export enum Sources {
   Twitter = 'twitter',
   Swarm = 'swarm',
   GoogleFit = 'gfit',
+  GoogleApi = 'googleapi',
   FitBit = 'fitbit',
   Facebook = 'faceboook',
   Goodreads = 'goodreads',
