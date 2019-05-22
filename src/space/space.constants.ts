@@ -4,6 +4,7 @@ export enum QueryRequestSources {
 
 export enum DataMethod {
   instagram = 'get',
-  spotify = 'get',
+  spotify = 'post',
   googleapi = 'post',
+  googleapi_location = 'get',
 }

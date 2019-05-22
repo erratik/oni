@@ -6,6 +6,7 @@ import { ISettings } from '../settings/interfaces/settings.schema';
 import { TokenService } from '../token/token.service';
 import { ConfigService } from '../config/config.service';
 import { QueryRequestSources as SpacesV1, DataMethod } from './space.constants';
+import { Sources } from '../app.constants';
 
 @Injectable()
 export class SpaceRequestService {
@@ -25,17 +26,23 @@ export class SpaceRequestService {
   }
 
   public getData(settings: ISettings, options: any): Promise<any> {
-    //todo interface for options
-
-    if (DataMethod[settings.space] === 'post') {
+    // todo interface for options
+    //! this is too broad for auth requests and for data fetching :o
+    const appendedUrl = this.composeUrl(options.url, { access_token: settings.authorization.info.access_token });
+    if (
+      (!options.methodSuffix && DataMethod[settings.space] === 'post') ||
+      (!!options.methodSuffix && DataMethod[settings.space + '_' + options.methodSuffix] === 'post')
+    ) {
       return superagent
         .post(options.url)
         .set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
-        .send(options.body);
+        .send(options.body || {});
+    } else if (settings.space === Sources.GoogleApi && options.methodSuffix === 'location') {
+      return superagent.get(appendedUrl);
     } else {
-      return this.spacesV1.some(source => source === settings.space)
-        ? superagent.get(this.composeUrl(options.url, { access_token: settings.authorization.info.access_token }))
-        : superagent.get(options.url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token });
+      return this.spacesV1.some(source => source !== settings.space)
+        ? superagent.get(options.url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
+        : superagent.get(appendedUrl);
     }
   }
 
@@ -69,9 +76,10 @@ export class SpaceRequestService {
     };
 
     let request = this.spacesV1.some(source => source !== settings.space)
-      ? superagent.post(this.composeUrl(settings.credentials.grantorUrl, options))
+      ? superagent.post(this.composeUrl(settings.credentials.grantorUrl, options)).set('Content-Type', 'application/x-www-form-urlencoded')
       : superagent
           .post(settings.credentials.grantorUrl)
+          .set('Content-Type', 'application/x-www-form-urlencoded')
           .field('client_id', settings.credentials.clientId)
           .field('client_secret', settings.credentials.clientSecret)
           .field('grant_type', 'authorization_code')
@@ -80,13 +88,14 @@ export class SpaceRequestService {
 
     return request
       .then(async result => {
+        // debugger;
         const token = await this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings).then(token => token);
         return token;
       })
       .catch(({ response }) => ({ error: response.error, body: response.body }));
   }
 
-  public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body?) {
+  public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body = null) {
     if (!settings && !!res) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} settings for found for ${settings.owner}` });
     }
@@ -96,18 +105,24 @@ export class SpaceRequestService {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} token for ${settings.owner}` });
     }
 
-    const url = settings.baseUrl + query.endpoint;
+    let url = !!query.endpoint ? settings.baseUrl + query.endpoint : settings.baseUrl;
     const isTokenExpired = new Date().valueOf() >= token.updatedAt.valueOf() + token.expires_in * 1000;
 
     if (isTokenExpired && !!token.refresh_token) {
       return await this.refreshToken(settings, url).catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
     } else {
-      const receivedData = this.getData(settings, { url, body });
+      let methodSuffix = '';
+      if (settings.space === Sources.GoogleApi && query.type === 'location') {
+        methodSuffix = query.type;
+        url = query.endpoint;
+      }
+
+      const receivedData = this.getData(settings, { url, body, methodSuffix });
       return !query.consumed
         ? await receivedData
             .then(({ body }) => (!res ? null : res.status(HttpStatus.OK).json(body)))
-            .catch(err => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err))
-        : await receivedData.then(({ body }) => body);
+            .catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)))
+        : await receivedData.then(({ body }) => body).catch(err => err);
     }
   }
 }

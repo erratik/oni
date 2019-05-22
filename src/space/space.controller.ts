@@ -81,7 +81,7 @@ export class SpaceController {
 
   @Get('data/:space')
   @UseGuards(AuthGuard('jwt'))
-  async spaceRequest(@Param() param, @Query() query, @Response() res, @Req() req, @Body() body?) {
+  async spaceRequest(@Param() param, @Query() query, @Response() res, @Req() req, @Body() body = null) {
     const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
     query.consumed = false;
     return this.spaceRequestService.fetchHandler(settings, query, res, body);

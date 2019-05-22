@@ -7,6 +7,7 @@ import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
 import { IDropSchema } from '../drop-schemas/interfaces/drop-schema.schema';
 import { AttributeService } from '../attributes/attributes.service';
+import { DropSetDto } from './dto/drops.dto';
 
 @Injectable()
 export class DropService implements IDropService {
@@ -20,7 +21,7 @@ export class DropService implements IDropService {
   //? Create & Update
   //                                                                                                      //
 
-  public async addDrops(space: string, owner: string, drops: IDropItem[], navigation = {}): Promise<IDropItem[]> {
+  public async addDrops(space: string, owner: string, drops: IDropItem[], navigation = {}, type = 'default'): Promise<IDropItem[]> {
     let skipUpdate = false;
     const insert = await this.dropItemModel.collection.insert(drops).catch(e => {
       if (e) {
@@ -33,19 +34,34 @@ export class DropService implements IDropService {
       return insert;
     }
     this.logger.log(`[DropService]`, `Added (${insert.insertedIds.length}) drops ${space} drop schema for ${owner}`);
-    return this.upsertDropSet(space, owner, {
+    return this.upsertDropSet(
       space,
-      $addToSet: { drops: Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString()) },
-      navigation,
-    })
+      owner,
+      {
+        space,
+        $addToSet: { drops: Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString()) },
+        navigation,
+      },
+      type
+    )
       .then(dropSet => dropSet)
       .catch(error => error.message);
   }
 
-  public async upsertDropSet(space: string, owner: string, update = {}): Promise<IDropSet> {
-    this.logger.log(`[DropService]`, `Upserting ${space} drop schema for ${owner}`);
+  public async upsertDropSet(space: string, owner: string, update = {}, type = 'default'): Promise<IDropSet> {
+    this.logger.log(`[DropService]`, `Upserting ${space} drop set for ${owner}`);
     return this.dropSetModel
-      .findOneAndUpdate({ space, owner }, update, { upsert: true, new: true, runValidators: true })
+      .findOneAndUpdate({ space, owner, type }, update, { upsert: true, new: true, runValidators: true })
+      .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
+      .catch(error => error);
+  }
+
+  public async createDropSet(space: string, owner: string, dropSet: DropSetDto): Promise<IDropSet> {
+    this.logger.log(`[DropService]`, `Adding ${space} drop set for ${owner}`);
+    // const createdSet = new this.dropSetModel({ ...settingsDto, owner });
+    // return await createdSettings.save();
+    return this.dropSetModel
+      .create({ ...dropSet, space, owner })
       .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
       .catch(error => error);
   }

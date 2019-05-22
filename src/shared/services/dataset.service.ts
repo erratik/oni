@@ -1,6 +1,7 @@
 import * as btoa from 'btoa';
 import * as moment from 'moment';
 import * as dotProp from 'dot-prop';
+import * as activityTypes from 'google-fit-activity-types';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from './logger.service';
 import { Sources } from '../../app.constants';
@@ -8,9 +9,8 @@ import { IDropItem } from '../../drop/interfaces/drop-item.schema';
 import { flatten, camelize } from '../helpers/dataset.helpers';
 import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
-import { IDropKey, IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
-import { TimestampField, TimestampFormat, DropKeyType } from '../../drop/drop.constants';
-import * as activityTypes from 'google-fit-activity-types';
+import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
+import { TimestampField, TimestampFormat, DropKeyType, LocationDataColumns } from '../../drop/drop.constants';
 
 @Injectable()
 export class DatasetService {
@@ -42,8 +42,11 @@ export class DatasetService {
               case Sources.Spotify:
                 item.id = btoa(item[TimestampField[space]] + item['track']['id']);
                 break;
+              case Sources.GoogleApi:
+                item.id = !!item['Lat'] ? btoa(item['Time'] + item['Dly']) : btoa(item['startTimeNanos'] + item['endTimeNanos']);
+                break;
               default:
-                item.id = btoa(Math.random());
+                item.id = btoa(item[TimestampField[space]]);
             }
           }
           return Object.assign(item, { owner, space });
@@ -143,5 +146,31 @@ export class DatasetService {
       }
       return keys;
     });
+  }
+
+  public convertLocations(space: string, data: any): any {
+    const keys = data[0];
+    data.shift();
+    const drops = [];
+
+    const dataColumns = new Set(
+      Object.keys(LocationDataColumns)
+        .map(value => LocationDataColumns[value])
+        .filter(x => !!x && isNaN(x))
+    );
+
+    data.forEach((row: any[]) => {
+      let values = {};
+      row.filter((cell, i) => {
+        const isIncluded: boolean = dataColumns.has(keys[i]);
+        if (isIncluded) {
+          values[keys[i]] = isNaN(cell) ? cell : parseInt(cell);
+        }
+        return isIncluded;
+      });
+      drops.push(values);
+    });
+
+    return drops;
   }
 }

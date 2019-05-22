@@ -10,6 +10,9 @@ export class DropSetDto {
   readonly space: string;
 
   @ApiModelProperty()
+  readonly type: string;
+
+  @ApiModelProperty()
   readonly drops?: IDropItem[];
 
   @ApiModelProperty()

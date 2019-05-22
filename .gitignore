@@ -5,6 +5,7 @@ npm-debug.log
 .vscode/**
 coverage/**
 data/**
+data2/**
 dist
 tmp
 coverage

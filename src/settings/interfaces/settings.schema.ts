@@ -10,7 +10,7 @@ const AuthorizationSchema = new Schema(
       ref: 'Tokens',
     },
   },
-  { timestamps: true, _id: false }
+  { timestamps: true }
 );
 
 const CredentialsSchema = new Schema(
@@ -20,7 +20,7 @@ const CredentialsSchema = new Schema(
     scopes: { type: String },
     grantorUrl: { type: String },
   },
-  { timestamps: true, _id: false }
+  { timestamps: true }
 );
 
 const SettingsSchema = new Schema(
