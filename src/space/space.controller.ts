@@ -10,6 +10,7 @@ import { IConfig } from '../config/config';
 import { SpaceRequestService } from './space-request.service';
 import { QueryRequestSources } from './space.constants';
 import { Sources } from '../app.constants';
+import { composeUrl } from '../shared/helpers/request.helpers';
 
 @ApiUseTags('spaces')
 @Controller('v1/spaces')
@@ -93,7 +94,7 @@ export class SpaceController {
     const config: IConfig = this.configService.config;
     const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
 
-    let urlParams: any = {
+    let params: any = {
       client_id: settings.credentials.clientId,
       state: `${settings.owner}-${config.spaceState}-${settings.credentials.grantorUrl}`,
       scope: settings.credentials.scopes,
@@ -102,12 +103,12 @@ export class SpaceController {
     };
 
     if (param.space === Sources.GoogleApi) {
-      urlParams.include_granted_scopes = 'true';
-      urlParams.access_type = 'offline';
+      params.include_granted_scopes = 'true';
+      params.access_type = 'offline';
     }
 
     res.set('Authorization', '');
-    return res.redirect(HttpStatus.TEMPORARY_REDIRECT, this.spaceRequestService.composeUrl(settings.authorization.url, urlParams));
+    return res.redirect(HttpStatus.TEMPORARY_REDIRECT, composeUrl(settings.authorization.url, params));
   }
 
   @Get('callback/:space')

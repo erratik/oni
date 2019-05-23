@@ -7,6 +7,8 @@ import { TokenService } from '../token/token.service';
 import { ConfigService } from '../config/config.service';
 import { QueryRequestSources as SpacesV1, DataMethod } from './space.constants';
 import { Sources } from '../app.constants';
+import { composeUrl } from '../shared/helpers/request.helpers';
+import { IToken } from '../auth/interfaces/auth.interfaces';
 
 @Injectable()
 export class SpaceRequestService {
@@ -18,40 +20,65 @@ export class SpaceRequestService {
     }
   }
 
-  public composeUrl(url: string, params: any): any {
-    let uri = Object.entries(params)
-      .map(([key, val]) => `${key}=${val}`)
-      .join('&');
-    return url + '?' + uri;
-  }
-
   public getData(settings: ISettings, options: any): Promise<any> {
     // todo interface for options
     //! this is too broad for auth requests and for data fetching :o
-    const appendedUrl = this.composeUrl(options.url, { access_token: settings.authorization.info.access_token });
+    const access_token = settings.authorization.info.access_token;
+    const querifiedUrl = composeUrl(options.url, { access_token });
     if (
       (!options.methodSuffix && DataMethod[settings.space] === 'post') ||
       (!!options.methodSuffix && DataMethod[settings.space + '_' + options.methodSuffix] === 'post')
     ) {
       return superagent
         .post(options.url)
-        .set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
+        .set({ Authorization: 'Bearer ' + access_token })
         .send(options.body || {});
     } else if (settings.space === Sources.GoogleApi && options.methodSuffix === 'location') {
-      return superagent.get(appendedUrl);
+      return superagent.get(querifiedUrl);
     } else {
       return this.spacesV1.some(source => source !== settings.space)
-        ? superagent.get(options.url).set({ Authorization: 'Bearer ' + settings.authorization.info.access_token })
-        : superagent.get(appendedUrl);
+        ? superagent.get(options.url).set({ Authorization: 'Bearer ' + access_token })
+        : superagent.get(querifiedUrl);
     }
   }
 
+  public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body = null) {
+    const methodSuffix = query.type || '';
+    const url = query.endpoint.includes('https://') ? query.endpoint : settings.baseUrl + query.endpoint;
+
+    if (this.hasValidToken(settings, url, res)) {
+      const receivedData = this.getData(settings, { url, body, methodSuffix });
+
+      return !query.consumed
+        ? await receivedData
+            .then(({ body }) => (!res ? null : res.status(HttpStatus.OK).json(body)))
+            .catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)))
+        : await receivedData.then(({ body }) => body).catch(err => err);
+    }
+  }
+
+  private async hasValidToken(settings: ISettings, url: string, @Response() res): Promise<boolean> {
+    if (!settings) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} settings for found for ${settings.owner}` });
+    }
+    let token = settings.authorization.info;
+    if (!token) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} token for ${settings.owner}` });
+    }
+    const isTokenExpired = Date.now() >= token.updatedAt.valueOf() + token.expires_in * 1000 && !!token.refresh_token;
+    if (isTokenExpired) {
+      token = await this.refreshToken(settings, url).catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
+    }
+    return true;
+  }
+
   public refreshToken(settings: ISettings, url: string): any {
+    const itoken = settings.authorization.info;
     return superagent
       .post(
-        this.composeUrl(settings.credentials.grantorUrl, {
+        composeUrl(settings.credentials.grantorUrl, {
           grant_type: 'refresh_token',
-          refresh_token: settings.authorization.info.refresh_token,
+          refresh_token: itoken.refresh_token,
         })
       )
       .set({
@@ -60,9 +87,10 @@ export class SpaceRequestService {
       })
       .then(async result => {
         this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings);
-        settings.authorization.info.access_token = result.body.access_token;
+        itoken.access_token = result.body.access_token;
         return this.getData(settings, { url });
-      });
+      })
+      .catch(err => err);
   }
 
   public async getToken(settings: ISettings, code: string): Promise<any> {
@@ -76,10 +104,9 @@ export class SpaceRequestService {
     };
 
     let request = this.spacesV1.some(source => source !== settings.space)
-      ? superagent.post(this.composeUrl(settings.credentials.grantorUrl, options)).set('Content-Type', 'application/x-www-form-urlencoded')
+      ? superagent.post(composeUrl(settings.credentials.grantorUrl, options))
       : superagent
           .post(settings.credentials.grantorUrl)
-          .set('Content-Type', 'application/x-www-form-urlencoded')
           .field('client_id', settings.credentials.clientId)
           .field('client_secret', settings.credentials.clientSecret)
           .field('grant_type', 'authorization_code')
@@ -87,42 +114,11 @@ export class SpaceRequestService {
           .field('code', code);
 
     return request
+      .set('Content-Type', 'application/x-www-form-urlencoded')
       .then(async result => {
-        // debugger;
         const token = await this.tokenService.register({ ...result.body, owner: settings.owner, space: settings.space }, settings).then(token => token);
         return token;
       })
       .catch(({ response }) => ({ error: response.error, body: response.body }));
-  }
-
-  public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body = null) {
-    if (!settings && !!res) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} settings for found for ${settings.owner}` });
-    }
-
-    const token = settings.authorization.info;
-    if (!token && !!res) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: `No ${settings.space} token for ${settings.owner}` });
-    }
-
-    let url = !!query.endpoint ? settings.baseUrl + query.endpoint : settings.baseUrl;
-    const isTokenExpired = new Date().valueOf() >= token.updatedAt.valueOf() + token.expires_in * 1000;
-
-    if (isTokenExpired && !!token.refresh_token) {
-      return await this.refreshToken(settings, url).catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
-    } else {
-      let methodSuffix = '';
-      if (settings.space === Sources.GoogleApi && query.type === 'location') {
-        methodSuffix = query.type;
-        url = query.endpoint;
-      }
-
-      const receivedData = this.getData(settings, { url, body, methodSuffix });
-      return !query.consumed
-        ? await receivedData
-            .then(({ body }) => (!res ? null : res.status(HttpStatus.OK).json(body)))
-            .catch(err => (!res ? null : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)))
-        : await receivedData.then(({ body }) => body).catch(err => err);
-    }
   }
 }

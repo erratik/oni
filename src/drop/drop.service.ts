@@ -22,29 +22,38 @@ export class DropService implements IDropService {
   //                                                                                                      //
 
   public async addDrops(space: string, owner: string, drops: IDropItem[], navigation = {}, type = 'default'): Promise<IDropItem[]> {
-    let skipUpdate = false;
+    let skippedUpdate = false;
     const insert = await this.dropItemModel.collection.insert(drops).catch(e => {
-      if (e) {
-        skipUpdate = true;
-        this.logger.log(`[DropService]`, `No drops to add, they already exist`);
-        return this.dropSetModel.findOne({ space, owner }).then(dropSet => dropSet.toObject());
+      skippedUpdate = e.writeErrors.length === drops.length;
+
+      if (!skippedUpdate) {
+        const duplicateCount: number = e.writeErrors.filter(({ code }) => 11000).length;
+        const otherErrCount: number = e.writeErrors.length - duplicateCount;
+        this.logger.log(`[DropService]`, `Skipped ${e.writeErrors.length}/${duplicateCount} duplicates`);
+        if (otherErrCount) this.logger.log(`[DropService]`, `There were ${otherErrCount} other errors  🙀`);
+        return { insertedIds: e.result.getInsertedIds(), wasPartial: true };
+      } else {
+        this.logger.log(`[DropService]`, `No drops to add in ${space} dropset, all already exist`);
+        return this.dropSetModel.findOne({ space, owner, type }).then(dropSet => dropSet.toObject());
       }
     });
-    if (skipUpdate) {
-      return insert;
-    }
+    if (skippedUpdate) return insert;
+
     this.logger.log(`[DropService]`, `Added (${insert.insertedIds.length}) drops ${space} drop schema for ${owner}`);
+    const addedDrops = insert.wasPartial
+      ? insert.insertedIds.map(({ _id }) => _id.toString())
+      : Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString());
     return this.upsertDropSet(
       space,
       owner,
       {
         space,
-        $addToSet: { drops: Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString()) },
+        $addToSet: { drops: addedDrops },
         navigation,
       },
       type
     )
-      .then(dropSet => dropSet)
+      .then((dropSet: IDropSet) => dropSet)
       .catch(error => error.message);
   }
 
@@ -53,24 +62,22 @@ export class DropService implements IDropService {
     return this.dropSetModel
       .findOneAndUpdate({ space, owner, type }, update, { upsert: true, new: true, runValidators: true })
       .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
-      .catch(error => error);
+      .catch(error => error.message);
   }
 
   public async createDropSet(space: string, owner: string, dropSet: DropSetDto): Promise<IDropSet> {
     this.logger.log(`[DropService]`, `Adding ${space} drop set for ${owner}`);
-    // const createdSet = new this.dropSetModel({ ...settingsDto, owner });
-    // return await createdSettings.save();
     return this.dropSetModel
       .create({ ...dropSet, space, owner })
       .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
-      .catch(error => error);
+      .catch(error => error.message);
   }
 
   //                                                                                                      //
   //? Retrieve
 
   // todo: CRUD on drop schemas
-  public async getDropSchema(query: any): Promise<IDropSchema> {
+  public async getDropSchema(query: any, type = 'default'): Promise<IDropSchema> {
     this.logger.log(`[DropService]`, `Fetching ${query.space} drop schema for  ${query.owner}`);
     const dropSet: IDropSet = await this.dropSetModel.findOne(query).populate('schemas');
     return dropSet ? { ...dropSet.toObject() } : null;

@@ -160,11 +160,11 @@ export class DatasetService {
     );
 
     data.forEach((row: any[]) => {
-      let values = {};
+      let values = { type: 'gps' };
       row.filter((cell, i) => {
         const isIncluded: boolean = dataColumns.has(keys[i]);
         if (isIncluded) {
-          values[keys[i]] = isNaN(cell) ? cell : parseInt(cell);
+          values[keys[i]] = isNaN(cell) ? cell : parseFloat(cell);
         }
         return isIncluded;
       });
