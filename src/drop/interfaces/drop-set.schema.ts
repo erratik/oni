@@ -1,7 +1,7 @@
 import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
-import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
 import { IDropItem } from './drop-item.schema';
+import { DropType } from '../drop.constants';
 
 const DropSetSchema = new Schema(
   {
@@ -18,7 +18,7 @@ const DropSetSchema = new Schema(
     keys: [{ type: String }],
     // stats: { type: Schema.Types.Mixed },
     navigation: { type: Schema.Types.Mixed },
-    type: { type: String, default: 'default' },
+    type: { type: String, default: DropType.Default },
     request: { type: Schema.Types.Mixed },
   },
   { timestamps: true }

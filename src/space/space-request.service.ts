@@ -8,7 +8,7 @@ import { ConfigService } from '../config/config.service';
 import { QueryRequestSources as SpacesV1, DataMethod } from './space.constants';
 import { Sources } from '../app.constants';
 import { composeUrl } from '../shared/helpers/request.helpers';
-import { IToken } from '../auth/interfaces/auth.interfaces';
+import { DropType } from '../drop/drop.constants';
 
 @Injectable()
 export class SpaceRequestService {
@@ -24,16 +24,17 @@ export class SpaceRequestService {
     // todo interface for options
     //! this is too broad for auth requests and for data fetching :o
     const access_token = settings.authorization.info.access_token;
-    const querifiedUrl = composeUrl(options.url, { access_token });
-    if (
-      (!options.methodSuffix && DataMethod[settings.space] === 'post') ||
-      (!!options.methodSuffix && DataMethod[settings.space + '_' + options.methodSuffix] === 'post')
-    ) {
+    const querifiedUrl = composeUrl(options.url, { access_token }).replace(/(^.*?\?.*?)(\?)/gm, '$1&');
+
+    const method = options.suffix || false;
+    const dataMethod = !['post', 'get'].includes(method) ? DataMethod[settings.space + '_' + method] : !method ? DataMethod[settings.space] : method;
+
+    if (dataMethod === 'post') {
       return superagent
         .post(options.url)
         .set({ Authorization: 'Bearer ' + access_token })
         .send(options.body || {});
-    } else if (settings.space === Sources.GoogleApi && options.methodSuffix === 'location') {
+    } else if (settings.space === Sources.GoogleApi && options.suffix === DropType.GPS) {
       return superagent.get(querifiedUrl);
     } else {
       return this.spacesV1.some(source => source !== settings.space)
@@ -43,11 +44,11 @@ export class SpaceRequestService {
   }
 
   public async fetchHandler(settings: ISettings, query: any, @Response() res, @Body() body = null) {
-    const methodSuffix = query.type || '';
-    const url = query.endpoint.includes('https://') ? query.endpoint : settings.baseUrl + query.endpoint;
+    const suffix = query.type || DropType.Default;
+    const url = query.endpoint && query.endpoint.includes('https://') ? query.endpoint : settings.baseUrl + (query.endpoint || '');
 
     if (this.hasValidToken(settings, url, res)) {
-      const receivedData = this.getData(settings, { url, body, methodSuffix });
+      const receivedData = this.getData(settings, { url, body, suffix });
 
       return !query.consumed
         ? await receivedData

@@ -7,7 +7,7 @@ import { ApiUseTags } from '@nestjs/swagger';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { SpaceRequestService } from '../space/space-request.service';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { ResponseItemsPath, TimestampField } from './drop.constants';
+import { ResponseItemsPath, TimestampField, DropType } from './drop.constants';
 import { DatasetService } from '../shared/services/dataset.service';
 import { SettingsService } from '../settings/settings.service';
 import { AttributeService } from '../attributes/attributes.service';
@@ -61,20 +61,19 @@ export class DropController {
 
   @Get(':space/item')
   @UseGuards(AuthGuard('jwt'))
-  async getOneDrop(@Param() param, @Req() req, @Response() res, @Query('schema') type, @Body() query) {
+  async getOneDrop(@Param() param, @Req() req, @Response() res, @Query('type') type, @Body() moreFields) {
     let sorter = {};
     sorter[TimestampField[param.space]] = -1;
-    return await this.dropService.getDrop({ ...query, space: param.space, owner: req.user.username }, sorter).then(async drop => {
+    return await this.dropService.getDrop({ space: param.space, owner: req.user.username, ...moreFields }, sorter).then(async drop => {
       if (!drop) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `No drop found with query: ${JSON.stringify(query)}`,
+          message: `No drop found with query: ${JSON.stringify(moreFields)}`,
         });
       } else {
-        if (type) {
-          await this.dropSchemaService.getDropSchema({ space: param.space, owner: req.user.username, type }).then(schema => {
-            drop = this.datasetService.buildDropWithSchema(param.space, drop, schema);
-          });
-        }
+        await this.dropSchemaService
+          .getDropSchema({ space: param.space, owner: req.user.username, type: type || DropType.Default })
+          .then(schema => (drop = this.datasetService.buildDropWithSchema(param.space, drop, schema)));
+
         return res.status(HttpStatus.OK).json(drop);
       }
     });
@@ -159,64 +158,73 @@ export class DropController {
     const settings: ISettings = !!req ? req.user.settings.find(({ space }) => space === param.space) : presets;
     let navigation = {};
     let body = {};
+    let dropCount: number;
+    type = type || DropType.Default;
+    const dropSetRetrieved = await this.dropService.getDropSet({ type, space: param.space, owner: settings.owner }).then((dropSet: IDropSet) => {
+      //todo put this in a service
+      if (!dropSet) return false;
 
-    await this.dropService
-      .getDropSet({ type, space: param.space, owner: settings.owner })
-      .then((dropSet: IDropSet) => {
-        //todo put this in a service
-        if (!dropSet) return;
+      body = dropSet.request || null;
+      query.endpoint = dropSet.endpoint;
+      dropCount = dropSet.drops.length;
+      switch (param.space) {
+        case Sources.Spotify:
+          query.endpoint += `?after=${dropSet.navigation.after}`;
+          break;
+        case Sources.Instagram:
+          query.endpoint += `?min_id=${dropSet.navigation.after}`;
+          break;
+        case Sources.GoogleApi:
+          body =
+            type !== DropType.GPS
+              ? { ...body, startTimeMillis: dropSet.navigation.after + 86400000, endTimeMillis: dropSet.navigation.before + 86400000 }
+              : null;
+          break;
+        default:
+          break;
+      }
+      return true;
+    });
 
-        body = dropSet.request || null;
-        query.endpoint = dropSet.endpoint;
-
-        switch (param.space) {
-          case Sources.Spotify:
-            query.endpoint += `?after=${dropSet.navigation.after}`;
-            break;
-          case Sources.GoogleApi:
-            body =
-              type !== 'location'
-                ? { ...body, startTimeMillis: dropSet.navigation.after + 86400000, endTimeMillis: dropSet.navigation.before + 86400000 }
-                : null;
-            break;
-          default:
-            break;
-        }
-      })
-      .catch(err => err);
+    if (!dropSetRetrieved) {
+      return !!res
+        ? res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+            message: `No ${type} drop set for ${req.user.username}`,
+          })
+        : null;
+    }
 
     // fetch drops
-    let drops: IDropItem[] = await this.spaceRequestService
-      .fetchHandler(settings, query, res, body)
-      .then(response => {
-        const responsePath = `${param.space}${type === 'default' ? '' : '_' + type}`;
-        let items = response[ResponseItemsPath[responsePath]];
+    let drops = await this.spaceRequestService.fetchHandler(settings, query, res, body).then(response => {
+      const hasError: boolean =
+        (response.status && response.status !== HttpStatus.OK) ||
+        !!JSON.stringify(response)
+          .toLowerCase()
+          .includes('error');
 
-        const hasError: boolean =
-          (response.status && response.status !== HttpStatus.OK) ||
-          !!JSON.stringify(response)
-            .toLowerCase()
-            .includes('error');
+      if (hasError || !response.length) return;
 
-        if (hasError || !items) return;
+      const responsePath = `${param.space}${type === DropType.Default ? '' : '_' + type}`;
+      let items: any[] = response[ResponseItemsPath[responsePath]];
 
-        if (param.space === Sources.GoogleApi) {
-          items =
-            type === 'location'
-              ? this.datasetService.convertLocations(param.space, items)
-              : Array.prototype.concat
-                  .apply([], items.map(bucket => Array.prototype.concat.apply([], bucket.dataset.map(({ point }) => point))))
-                  .map(someDrop => ({ ...someDrop, value: someDrop.value[0] }));
+      if (param.space === Sources.GoogleApi) {
+        if (type === DropType.GPS) {
+          items.splice(0, dropCount);
+          items = this.datasetService.convertLocations(param.space, items);
         } else {
-          items = this.datasetService.convertDatesToIso(param.space, items);
+          items = Array.prototype.concat
+            .apply([], items.map(bucket => Array.prototype.concat.apply([], bucket.dataset.map(({ point }) => point))))
+            .map(someDrop => ({ ...someDrop, value: someDrop.value[0] }));
         }
+      } else {
+        items = this.datasetService.convertDatesToIso(param.space, items);
+      }
 
-        Object.assign(navigation, this.datasetService.getCursors(param.space, items));
-        return items as IDropItem[];
-      })
-      .catch(err => err);
+      Object.assign(navigation, this.datasetService.getCursors(param.space, items));
+      return items as IDropItem[];
+    });
 
-    let updatedDropSet;
+    let updatedDropSet: Object | IDropSet;
     if (!!drops) {
       // map keys to dropSet, add all attributes from drops
       const dropKeys = this.datasetService.mapDropKeys(param.space, drops);

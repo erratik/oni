@@ -8,5 +8,5 @@ export interface IDropService {
   // toggleDropKey?(path: string): Promise<IDropKey>;
   // saveDropKeys?(keys: DropKeyDto): Promise<IDropKey>;
 
-  addDrops(space: string, owner: string, drops: IDropItem[], cursors?: {}): Promise<IDropItem[] | null>;
+  addDrops(space: string, owner: string, drops: IDropItem[], cursors?: {}): Promise<IDropSet | null>;
 }

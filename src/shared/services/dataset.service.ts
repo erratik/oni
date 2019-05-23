@@ -10,7 +10,7 @@ import { flatten, camelize } from '../helpers/dataset.helpers';
 import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
-import { TimestampField, TimestampFormat, DropKeyType, LocationDataColumns } from '../../drop/drop.constants';
+import { TimestampField, TimestampFormat, DropKeyType, LocationDataColumns, DropType } from '../../drop/drop.constants';
 
 @Injectable()
 export class DatasetService {
@@ -30,8 +30,14 @@ export class DatasetService {
   }
 
   public getCursors(space: string, drops: IDropItem[]): any {
-    const moments = drops.map(drop => moment(drop[TimestampField[space]]));
-    return { after: moment.max(moments).valueOf(), before: moment.min(moments).valueOf() };
+    if (space === Sources.Instagram) {
+      const suffix = drops[0].id.split('_')[1];
+      const ids = drops.map(({ id }) => parseInt(id.split('_')[0]));
+      return { after: `${Math.max(...ids)}_${suffix}`, before: `${Math.min(...ids)}_${suffix}` };
+    } else {
+      const moments = drops.map(drop => moment(drop[TimestampField[space]]));
+      return { after: moment.max(moments).valueOf(), before: moment.min(moments).valueOf() };
+    }
   }
 
   public identifyDrops(space: string, owner: string, drops: IDropItem[]): IDropItem[] {
@@ -121,6 +127,7 @@ export class DatasetService {
   }
 
   private flattenDrops(space: string, drops: IDropItem[], dropKeySets?) {
+    // debugger;
     return drops.map(drop => {
       const flattenedDrop = flatten(drop);
       const keys: IAttribute[] = Object.keys(flattenedDrop).map(path => {
@@ -160,7 +167,7 @@ export class DatasetService {
     );
 
     data.forEach((row: any[]) => {
-      let values = { type: 'gps' };
+      let values = { type: DropType.GPS };
       row.filter((cell, i) => {
         const isIncluded: boolean = dataColumns.has(keys[i]);
         if (isIncluded) {

@@ -18,6 +18,12 @@ export enum TimestampFormat {
   googleapi = 'x',
 }
 
+export enum DropType {
+  Activity = 'googlefit-activity',
+  GPS = 'gps',
+  Default = 'default',
+}
+
 export enum DropKeyType {
   Standard = 'standard',
   Custom = 'custom',

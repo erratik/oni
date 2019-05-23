@@ -5,7 +5,7 @@ import { ApiUseTags } from '@nestjs/swagger';
 import { DropSchemaDto } from './dto/drop-schema.dto';
 import { AttributeService } from '../attributes/attributes.service';
 import { DropKeyDto } from '../drop/dto/drop-key.dto';
-import { DropKeyType } from '../drop/drop.constants';
+import { DropKeyType, DropType } from '../drop/drop.constants';
 
 @ApiUseTags('schemas')
 @Controller('v1/schemas')
@@ -28,12 +28,12 @@ export class DropSchemaController {
 
   @Get(':space')
   @UseGuards(AuthGuard('jwt'))
-  async getStandardDropSchemas(@Param() param, @Query() query, @Req() req, @Response() res) {
+  async getStandardDropSchemas(@Param() param, @Query() query, @Req() req, @Response() res, @Query('type') type?) {
     query.owner = req.user.username;
-    return await this.dropSchemaService.getDropSchemas(Object.assign(query, param)).then(dropSchemas => {
+    return await this.dropSchemaService.getDropSchema(Object.assign(query, param)).then(dropSchemas => {
       if (!dropSchemas) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `No drop schema for ${param.space}`,
+          message: `No ${type + ' '}drop schema for ${param.space}`,
         });
       } else {
         return res.status(HttpStatus.OK).json(dropSchemas);
@@ -47,7 +47,7 @@ export class DropSchemaController {
     const fields = {
       owner: req.user.username,
       space: param.space,
-      type: dropSchemaDto.type ? dropSchemaDto.type : 'default',
+      type: dropSchemaDto.type ? dropSchemaDto.type : DropType.Default,
     };
 
     // todo : put this in a service & populate when schema are retrieved so we don't need to getAttributes to map.

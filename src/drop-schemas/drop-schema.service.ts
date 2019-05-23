@@ -32,9 +32,8 @@ export class DropSchemaService implements IDropSchemaService {
 
   public async getDropSchema(query: any, sorter = {}, projection = {}): Promise<IDropSchema> {
     this.logger.log(`[DropSchemaService]`, `Getting ${query.space} dropSchemas`);
-    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, sorter, projection).populate('keyMap.attribute');
-    const keyMap: IDropKey[] = dropSchema.keyMap.map(k => k.toObject());
-    return dropSchema ? { ...dropSchema.toObject(), keyMap } : null;
+    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, sorter, projection);
+    return dropSchema ? { ...dropSchema.toObject() } : null;
   }
 
   public async getDropSchemas(query: any, sorter = {}, projection = {}): Promise<IDropSchema[]> {
