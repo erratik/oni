@@ -1,4 +1,4 @@
-import { INestApplication, INestExpressApplication } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { VersionModule } from './version/version.module';
@@ -7,10 +7,10 @@ import { ConfigModule } from './config/config.module';
 import { ConfigService } from './config/config.service';
 import { AppModule } from './app.module';
 import * as logger from 'morgan';
-import { join } from 'path';
 import { LogFormats } from './shared/constants/formats.constant';
+import { join } from 'path';
 
-function bootstrapLogger(app: INestApplication & INestExpressApplication) {
+function bootstrapLogger(app: INestApplication) {
   const logFormat: LogFormats = LogFormats.DefaultFormat;
   const errorLogFormat: LogFormats = LogFormats.ErrorLogFormat;
 
@@ -26,7 +26,20 @@ function bootstrapLogger(app: INestApplication & INestExpressApplication) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const fs = require('fs');
+
+  // tslint:disable: prefer-template
+  const keyFile = fs.readFileSync(join(__dirname, '../ssl/datawhore.key'));
+  const certFile = fs.readFileSync(join(__dirname, '../ssl/datawhore.crt'));
+
+  const app = await NestFactory.create(AppModule, {
+    cors: true,
+    httpsOptions: {
+      key: keyFile,
+      cert: certFile,
+    },
+  });
+
   app.useStaticAssets(join(__dirname, 'public'), {
     index: false,
     redirect: false,

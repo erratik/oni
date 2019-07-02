@@ -30,3 +30,8 @@ $ npm run test
 # test coverage
 $ npm run test:cov
 ```
+
+
+### Backup MongoDB
+```bash
+./scripts/mongo.dump.sh -c mongodb-geisha -db datawhore --network oni_mongo_net

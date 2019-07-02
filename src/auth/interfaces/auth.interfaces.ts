@@ -12,12 +12,6 @@ export interface RegistrationStatus {
   message: string;
 }
 
-export interface IToken {
-  token: string;
-  expiry?: Date;
-  scope?: string;
-}
-
 export interface AuthorizationDBModel {
   token: string;
   expiry: Date;

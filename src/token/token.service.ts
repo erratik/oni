@@ -13,28 +13,26 @@ export class TokenService implements ITokenService {
   public constructor(
     @Inject(InjectionTokens.TokenModel) private readonly tokenModel: PassportLocalModel<IToken>,
     public settingsService: SettingsService,
-    public logger: LoggerService
+    public logger: LoggerService,
   ) {}
 
-  //? Create & Update
+  // ? Create & Update
   //                                                                                                      //
 
   public async register(tokenDto: TokenDto, settings: ISettings): Promise<IToken> {
-    this.logger.log(`[TokenService]`, `Upserting ${tokenDto.owner}'s token for ${tokenDto.space}`);
+    this.logger.log('[TokenService]', `Upserting ${tokenDto.owner}'s token for ${tokenDto.space}`);
 
     return this.tokenModel
       .findOneAndUpdate({ space: tokenDto.space, owner: tokenDto.owner }, { ...tokenDto }, { upsert: true, new: true, runValidators: true })
       .then(async (token: IToken) => {
         settings.authorization.info = token;
-        return await this.settingsService.update(tokenDto.owner, tokenDto.space as Source, settings).then(() => {
-          return { ...token.toObject() };
-        });
+        return await this.settingsService.update(tokenDto.owner, tokenDto.space as Source, settings).then(() => ({ ...token.toObject() }));
       })
-      .catch(error => console.error(error));
+      .catch(error => error);
   }
 
   //                                                                                                      //
-  //? Retrieve
+  // ? Retrieve
   //                                                                                                      //
 
   public async findAll(query = {}): Promise<IToken[]> {
@@ -42,19 +40,19 @@ export class TokenService implements ITokenService {
   }
 
   public async findById(id: string): Promise<IToken> {
-    this.logger.log(`[TokenService]`, `Fetching token with id: ${id}`);
+    this.logger.log('[TokenService]', `Fetching token with id: ${id}`);
     const token = await this.tokenModel.findById(id);
     return token ? { ...token.toObject() } : null;
   }
 
   public async getTokenBySpace(owner: string, space: string): Promise<IToken | null> {
-    this.logger.log(`[TokenService]`, `Fetching ${owner}'s token for ${space}`);
+    this.logger.log('[TokenService]', `Fetching ${owner}'s token for ${space}`);
     const token = await this.tokenModel.findOne({ owner, space });
     return token ? { ...token.toObject() } : null;
   }
 
   //                                                                                                      //
-  //! Delete
+  // ! Delete
   //                                                                                                      //
 
   async delete(owner: string, space: string): Promise<string> {

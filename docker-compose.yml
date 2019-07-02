@@ -13,7 +13,7 @@ networks:
 
 services:
   oni_redis:
-    container_name: oni_redis
+    container_name: '${PROJECT_NAME}-redis'
     image: redis
     networks:
       - mongo_net
@@ -23,54 +23,51 @@ services:
       - '6379:6379'
 
   # MongoDB and document data store
-  init:
-    container_name: init
-    image: erratik/kusanagi-init
+  oni_mongo:
+    container_name: '${PROJECT_NAME}-mongo'
+    image: mongo
     environment:
-      - USEIP=172.16.0.3
+      - USEIP=${MONGO_USEIP}
+      - MONGO_DATABASE=${MONGO_DATABASE}
+      - MONGO_USER=${MONGO_USER}
+      - MONGO_PASS=${MONGO_PASS}
+      - AUTH=no
     restart: always
     networks:
       mongo_net:
-        ipv4_address: 172.16.0.3
-    ports:
-      - '27017:27017'
-    command: ./run.sh
-
-  mongo:
-    container_name: mongo
-    image: mongo
-    depends_on:
-      - init
-    networks:
-      mongo_net:
+        ipv4_address: ${MONGO_USEIP}
     volumes:
       - mongo:/data
-      - ./data/datawhore:/data/datawhore
-    command: mongorestore --host=172.16.0.3 --db datawhore -u erratik -p kaya80ate ./data/datawhore
-    # logging:
-    #   driver: none
+      - ./data/dump:/data/dump
+      - ./data/dump/${MONGO_DATABASE}:/data/${MONGO_DATABASE}
+      - ./scripts/mongo.geisha.sh:/mongo.geisha.sh
+    ports:
+      - '27017:27017'
+    command: /bin/bash mongo.geisha.sh
 
   oni:
     image: node:9.6.1-alpine
-    container_name: local_oni
+    container_name: '${PROJECT_NAME}'
     working_dir: /app
     depends_on:
-      - oni_redis
-      - mongo
+      - '${PROJECT_NAME}_redis'
+      - '${PROJECT_NAME}_mongo'
+      # - '${PROJECT_NAME}_nginx'
     networks:
       mongo_net:
     environment:
       - REDIS_HOST=oni_redis
-      - CORS_ORIGIN=http://localhost:10011, http://datawhore.erratik.ca:10011
+      - CORS_ORIGIN=http://localhost:10011, https://datawhore.erratik.ca:10011
       - NODE_ENV=dev
       - REDIS_URL=redis://redis:6379/0
-      - MONGO_URI=mongodb://erratik:kaya80ate@172.16.0.3:27017/datawhore
+      - MONGO_URI=mongodb://172.16.0.3:27017/datawhore
       - SESSION_SECRET=fiddle-farter
       - PORT=10011
     ports:
       - '10011:10011'
       - '127.0.0.1:9229:9229'
     volumes:
+      - $PWD/.ssl:/app/ssl
       - $PWD/tmp:/app/tmp
       - $PWD/dist:/app/dist
       - $PWD/node_modules:/app/node_modules

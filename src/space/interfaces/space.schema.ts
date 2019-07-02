@@ -3,7 +3,7 @@ import * as passportLocalMongoose from 'passport-local-mongoose';
 
 const ProfileSchema = new Schema({
   type: SchemaTypes.Mixed,
-  owner: { type: String, required: true },
+  owner: { type: String, required: true, sparse: true },
 });
 
 const SpaceSchema = new Schema(
