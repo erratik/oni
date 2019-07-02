@@ -9,7 +9,7 @@ const DropKeySchema = new Schema(
     path: { type: String, required: true, unique: true },
     enabled: { type: Boolean, required: true },
     displayName: { type: String, required: true },
-    name: { type: String, required: true },
+    name: { type: String },
     attribute: {
       type: Schema.Types.ObjectId,
       ref: 'Attributes',

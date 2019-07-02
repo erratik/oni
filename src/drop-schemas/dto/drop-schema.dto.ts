@@ -2,13 +2,13 @@ import { ApiModelProperty } from '@nestjs/swagger';
 
 export class DropSchemaDto {
   @ApiModelProperty()
-  space: string;
+  space?: string;
 
   @ApiModelProperty()
-  owner: string;
+  owner?: string;
 
   @ApiModelProperty()
-  type: string;
+  type?: string;
 
   @ApiModelProperty()
   keyMap: any[];

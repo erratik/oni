@@ -1,25 +1,25 @@
 export enum ResponseItemsPath {
   instagram = 'data',
   spotify = 'items',
-  googleapi = 'bucket',
-  googleapi_location = 'values',
+  googleapi_activity = 'bucket',
+  googleapi_gps = 'values',
 }
 
-export enum TimestampField {
+export enum TimestampDelta {
   instagram = 'created_time',
   spotify = 'played_at',
-  googleapi = 'startTimeNanos,endTimeNanos',
-  googleapi_location = 'Time',
+  googleapi_activity = 'startTimeNanos,endTimeNanos',
+  googleapi_gps = 'Time',
 }
 
 export enum TimestampFormat {
   instagram = 'x',
-  spotify = 'YYYY-MM-DDTHH:mm:ss.SSSZ',
   googleapi = 'x',
+  spotify = 'YYYY-MM-DDTHH:mm:ss.SSSZ',
 }
 
 export enum DropType {
-  Activity = 'googlefit-activity',
+  Activity = 'activity',
   GPS = 'gps',
   Default = 'default',
 }
@@ -44,4 +44,8 @@ export enum LocationDataColumns {
   Category = 29,
   TimeWithTZ = 30,
   TimeWithMS = 31,
+}
+
+export enum Numbers {
+  MaxRows = 2000,
 }

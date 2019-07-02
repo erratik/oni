@@ -9,8 +9,9 @@ const AuthorizationSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Tokens',
     },
+    other: { type: Schema.Types.Mixed, sparse: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const CredentialsSchema = new Schema(
@@ -20,7 +21,7 @@ const CredentialsSchema = new Schema(
     scopes: { type: String },
     grantorUrl: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const SettingsSchema = new Schema(
@@ -30,14 +31,15 @@ const SettingsSchema = new Schema(
     owner: { type: String },
     authorization: { type: AuthorizationSchema },
     credentials: { type: CredentialsSchema },
-    cron: { type: String },
+    cron: { type: Schema.Types.Mixed },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export interface IAuthorization extends Document {
   url: string;
   info?: IToken;
+  other?: any;
 }
 
 export interface ICredentials extends Document {

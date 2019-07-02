@@ -5,23 +5,26 @@ import { PassportLocalModel } from 'passport-local-mongoose';
 import { IDropSchemaService } from './interfaces/idropschema.service';
 import { IDropSchema, IDropKey } from './interfaces/drop-schema.schema';
 import { DropSchemaDto } from './dto/drop-schema.dto';
-import { ISettings } from '../settings/interfaces/settings.schema';
+import { DropType } from '../drop/drop.constants';
 
 @Injectable()
 export class DropSchemaService implements IDropSchemaService {
   public constructor(
     @Inject(InjectionTokens.DropSchemaModel) private readonly dropSchemaModel: PassportLocalModel<IDropSchema>,
-    public logger: LoggerService
+    public logger: LoggerService,
   ) {}
 
   public upsertDropSchema(dropSchema: DropSchemaDto): Promise<IDropSchema> {
-    this.logger.log(`[DropSchemaService]`, `Upserting ${dropSchema.space} drop schema for ${dropSchema.owner}`);
+    this.logger.log('[DropSchemaService]', `Upserting ${dropSchema.space} drop schema for ${dropSchema.owner}`);
+    const newDropSchema = { ...dropSchema };
+    delete newDropSchema.keyMap;
 
     return this.dropSchemaModel
-      .findOneAndUpdate({ space: dropSchema.space, owner: dropSchema.owner, type: dropSchema.type }, dropSchema, {
-        upsert: true,
-        runValidators: true,
-      })
+      .findOneAndUpdate(
+        { space: dropSchema.space, owner: dropSchema.owner, type: dropSchema.type || DropType.Default },
+        { ...newDropSchema, $addToSet: { keyMap: dropSchema.keyMap } },
+        { upsert: true, new: true, runValidators: true },
+      )
       .then((dropSchema: IDropSchema) => ({ ...dropSchema.toObject() }))
       .catch(error => error);
   }
@@ -31,13 +34,14 @@ export class DropSchemaService implements IDropSchemaService {
   }
 
   public async getDropSchema(query: any, sorter = {}, projection = {}): Promise<IDropSchema> {
-    this.logger.log(`[DropSchemaService]`, `Getting ${query.space} dropSchemas`);
-    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, sorter, projection);
-    return dropSchema ? { ...dropSchema.toObject() } : null;
+    this.logger.log('[DropSchemaService]', `Getting ${query.space} dropSchemas`);
+    const dropSchema: IDropSchema = await this.dropSchemaModel.findOne(query, sorter, projection).populate('keyMap.attribute');
+    const keyMap: IDropKey[] = dropSchema.keyMap.map(k => k.toObject());
+    return dropSchema ? { ...dropSchema.toObject(), keyMap } : null;
   }
 
   public async getDropSchemas(query: any, sorter = {}, projection = {}): Promise<IDropSchema[]> {
-    this.logger.log(`[DropSchemaService]`, `Getting ${query.space} dropSchemas`);
+    this.logger.log('[DropSchemaService]', `Getting ${query.space} dropSchemas`);
     const dropSchemas: IDropSchema[] = await this.dropSchemaModel.find(query, sorter, projection);
     return dropSchemas ? dropSchemas.map(items => ({ ...items.toObject() })) : null;
   }

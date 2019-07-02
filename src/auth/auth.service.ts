@@ -15,7 +15,7 @@ export class AuthService {
   constructor(
     @Inject(InjectionTokens.UserModel) private userModel: PassportLocalModel<IUser>,
     private userService: UserService,
-    private configService: ConfigService
+    private configService: ConfigService,
   ) {}
 
   public async validateUser(payload: UserPayload): Promise<any> {

@@ -30,3 +30,13 @@ export enum InjectionTokens {
   AttributeModel = 'AttributeModelToken',
   DropSchemaModel = 'DropSchemaModelToken',
 }
+
+export enum TimeValues {
+  Second = 'second',
+  Minute = 'minute',
+  Hour = 'hour',
+  Day = 'day',
+  Week = 'week',
+  Month = 'month',
+  Year = 'year',
+}
