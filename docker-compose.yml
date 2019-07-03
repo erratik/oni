@@ -16,7 +16,8 @@ services:
     container_name: '${PROJECT_NAME}-redis'
     image: redis
     networks:
-      - mongo_net
+      mongo_net:
+        ipv4_address: ${REDIS_IP}
     volumes:
       - redis:/data
     ports:
@@ -27,7 +28,7 @@ services:
     container_name: '${PROJECT_NAME}-mongo'
     image: mongo
     environment:
-      - USEIP=${MONGO_USEIP}
+      - USEIP=${MONGO_IP}
       - MONGO_DATABASE=${MONGO_DATABASE}
       - MONGO_USER=${MONGO_USER}
       - MONGO_PASS=${MONGO_PASS}
@@ -35,7 +36,7 @@ services:
     restart: always
     networks:
       mongo_net:
-        ipv4_address: ${MONGO_USEIP}
+        ipv4_address: ${MONGO_IP}
     volumes:
       - mongo:/data
       - ./data/dump:/data/dump
@@ -52,16 +53,18 @@ services:
     depends_on:
       - '${PROJECT_NAME}_redis'
       - '${PROJECT_NAME}_mongo'
-      # - '${PROJECT_NAME}_nginx'
     networks:
-      mongo_net:
+      - mongo_net
     environment:
-      - REDIS_HOST=oni_redis
       - CORS_ORIGIN=http://localhost:10011, https://datawhore.erratik.ca:10011
       - NODE_ENV=dev
-      - REDIS_URL=redis://redis:6379/0
-      - MONGO_URI=mongodb://172.16.0.3:27017/datawhore
+      - REDIS_HOST=${PROJECT_NAME}_redis
+      - REDIS_IP=${REDIS_IP}
+      - REDIS_URI=redis://${REDIS_IP}:6379/0
+      - MONGO_URI=mongodb://${MONGO_IP}:27017/datawhore
       - SESSION_SECRET=fiddle-farter
+      - JWT_SECRET=mother-tucker
+      - STATE=oopsiePoopsie
       - PORT=10011
     ports:
       - '10011:10011'

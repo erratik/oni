@@ -1,5 +1,5 @@
 import { IConfig } from '../config/config';
-import { configProd } from './config.production-env';
+import { configProd } from './config.production';
 import { Injectable } from '@nestjs/common';
 import { config } from './config';
 

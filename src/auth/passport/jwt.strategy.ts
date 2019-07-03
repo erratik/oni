@@ -10,12 +10,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly authService: AuthService, private readonly settingsService: SettingsService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: 'ILovePokemon',
+      secretOrKey: process.env.JWT_SECRET,
     });
   }
 
   async validate(req: any, done: Function) {
-    let settings: ISettings;
     const user = await this.authService.validateUser(req).then(async owner => {
       return await this.settingsService.getSettings({ owner: owner.username }).then(settings => {
         owner.settings = settings;
@@ -26,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       return done(new UnauthorizedException(), false);
     }
-    // user.settings = settings;
+
     return user;
   }
 }

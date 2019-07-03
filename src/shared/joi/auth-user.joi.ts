@@ -24,9 +24,10 @@ export const registerUserSchema: ObjectSchema = object({
 });
 
 export const authTokenSchema: ObjectSchema = object({
+  accept: string(),
   authorization: string().required(),
   host: string(),
-  accept: string(),
+  cookie: string(),
   'user-agent': string(),
   'content-type': string(),
   'content-length': string(),

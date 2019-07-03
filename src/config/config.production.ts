@@ -8,7 +8,7 @@ export const configProd: IConfig = {
   mongodbTestUrl: 'mongodb://localhost:27017/oni-test',
   mongodbUrl: 'mongodb://root:PZyvHilceT@localhost:27017/oni',
   baseUrl: 'https://datawhore.erratik.ca:10011/v1',
-  spaceState: 'neverBreakTheChain',
+  state: process.env.STATE || 'neverBreakTheChain',
   swaggerScheme: 'https',
   redisHost: 'oni-redis-cache',
   redisPort: 6379,

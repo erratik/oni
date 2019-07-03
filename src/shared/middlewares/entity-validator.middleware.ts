@@ -15,7 +15,6 @@ export enum MiddlewarePaths {
   CredentialsDelete = 'settings/delete/credentials',
 }
 
-
 export const entityValidatorMiddleware: MiddlewareFunction = async (req: Request, res: Response, next: Function) => {
   let entitySchema = null;
   const path = req.path.split('/v1/')[1];

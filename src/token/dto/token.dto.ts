@@ -20,5 +20,11 @@ export class TokenDto {
   readonly space: string;
 
   @ApiModelProperty()
+  readonly oauth: any;
+
+  @ApiModelProperty()
+  readonly username?: string;
+
+  @ApiModelProperty()
   readonly expires_in: number;
 }

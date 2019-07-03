@@ -22,13 +22,16 @@ export class TokenService implements ITokenService {
   public async register(tokenDto: TokenDto, settings: ISettings): Promise<IToken> {
     this.logger.log('[TokenService]', `Upserting ${tokenDto.owner}'s token for ${tokenDto.space}`);
 
-    return this.tokenModel
+    return await this.tokenModel
       .findOneAndUpdate({ space: tokenDto.space, owner: tokenDto.owner }, { ...tokenDto }, { upsert: true, new: true, runValidators: true })
       .then(async (token: IToken) => {
-        settings.authorization.info = token;
-        return await this.settingsService.update(tokenDto.owner, tokenDto.space as Source, settings).then(() => ({ ...token.toObject() }));
+        settings.authorization.info = token._id;
+        this.settingsService.update(tokenDto.owner, tokenDto.space as Source, settings);
+        return { ...token.toObject() };
       })
-      .catch(error => error);
+      .catch(error => {
+        throw error;
+      });
   }
 
   //                                                                                                      //

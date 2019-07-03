@@ -28,4 +28,14 @@ export namespace Projections {
     authorization: 1,
     baseUrl: 1,
   };
+
+  export const DropSets: { [key: string]: number } = {
+    updatedAt: 1,
+    space: 1,
+    endpoint: 1,
+    navigation: 1,
+    owner: 1,
+    type: 1,
+    cron: 1,
+  };
 }

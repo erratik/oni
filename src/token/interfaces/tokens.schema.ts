@@ -8,10 +8,12 @@ const TokenSchema = new Schema(
     owner: { type: String, required: true },
     space: { type: String, required: true },
     token_type: { type: String },
+    oauth: { type: Schema.Types.Mixed, sparse: true },
     scope: { type: String },
     expires_in: { type: Number },
+    username: { type: String, sparse: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export interface IToken extends Document {
@@ -19,6 +21,7 @@ export interface IToken extends Document {
   refresh_token?: string;
   token_type?: string;
   scope?: string;
+  oauth?: any;
   owner: string;
   space: string;
   expires_in: number;

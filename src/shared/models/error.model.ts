@@ -4,7 +4,15 @@ export enum ErrorCode {
 }
 
 export class ErrorModel {
-  constructor(
-    public readonly code: ErrorCode,
-    public readonly message?: string) { }
+  constructor(public readonly code: ErrorCode, public readonly message?: string) {}
+}
+
+export interface ValidationErrorEntry {
+  key: string;
+  message: string;
+}
+
+export interface ValidationOutput {
+  data: any;
+  errors: Array<ValidationErrorEntry>;
 }

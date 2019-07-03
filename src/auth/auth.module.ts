@@ -17,9 +17,8 @@ import { SettingsService } from '../settings/settings.service';
 @Module({
   imports: [
     SharedServicesModule,
-    PassportModule.register({ defaultStrategy: 'local' }),
     JwtModule.register({
-      secretOrPrivateKey: process.env.SESSION_SECRET,
+      secretOrPrivateKey: process.env.JWT_SECRET,
       signOptions: {
         expiresIn: 3600,
       },

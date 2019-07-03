@@ -9,6 +9,10 @@ import { AppModule } from './app.module';
 import * as logger from 'morgan';
 import { LogFormats } from './shared/constants/formats.constant';
 import { join } from 'path';
+import * as cookieParser from 'cookie-parser';
+import * as session from 'express-session';
+const redisStore = require('connect-redis')(session);
+import redisClient from './shared/redis.client';
 
 function bootstrapLogger(app: INestApplication) {
   const logFormat: LogFormats = LogFormats.DefaultFormat;
@@ -27,8 +31,6 @@ function bootstrapLogger(app: INestApplication) {
 
 async function bootstrap() {
   const fs = require('fs');
-
-  // tslint:disable: prefer-template
   const keyFile = fs.readFileSync(join(__dirname, '../ssl/datawhore.key'));
   const certFile = fs.readFileSync(join(__dirname, '../ssl/datawhore.crt'));
 
@@ -39,6 +41,17 @@ async function bootstrap() {
       cert: certFile,
     },
   });
+
+  app.use(
+    session({
+      store: new redisStore({ host: process.env.REDIS_HOST, port: 6379, client: redisClient }),
+      name: 'sid',
+      resave: true,
+      // saveUninitialized: true,
+      secret: process.env.JWT_SECRET || 'mother-tucker',
+    }),
+  );
+  app.use(cookieParser());
 
   app.useStaticAssets(join(__dirname, 'public'), {
     index: false,

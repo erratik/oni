@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
@@ -14,7 +13,7 @@ import { settingsModelMongoDbProvider } from '../shared/repository/providers/mon
 import { SettingsService } from '../settings/settings.service';
 
 @Module({
-  imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' })],
+  imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt', session: true })],
   controllers: [UserController],
   providers: [
     ...mongoDatabaseProviders,

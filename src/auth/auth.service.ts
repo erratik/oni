@@ -47,7 +47,7 @@ export class AuthService {
     const expiresIn = this.configService.config.jwtTokenDuration;
 
     console.log('sign the token');
-    const token = jwt.sign({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName }, 'ILovePokemon', { expiresIn });
+    const token = jwt.sign({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName }, process.env.JWT_SECRET, { expiresIn });
 
     const expiry = moment()
       .add(expiresIn, 'seconds')
