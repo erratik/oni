@@ -26,7 +26,7 @@ import { IConfig } from '../config/config';
 import { SpaceRequestService } from './space-request.service';
 import { QueryRequestSources } from './space.constants';
 import { Sources } from '../app.constants';
-import { composeUrl, buildConnectParams, createConsumer } from '../shared/helpers/request.helpers';
+import { composeUrl, buildConnectParams, createConsumer, createBearer } from '../shared/helpers/request.helpers';
 import { TokenDto } from '../token/dto/token.dto';
 import redisClient from '../shared/redis.client';
 
@@ -35,6 +35,7 @@ import redisClient from '../shared/redis.client';
 export class SpaceController {
   public spacesV1: string[] = [];
   public consumer: oauth.OAuth = null;
+  public bearer: oauth.OAuth2 = null;
 
   constructor(
     private readonly spaceService: SpaceService,
@@ -115,6 +116,7 @@ export class SpaceController {
     // todo: check a list of spaces that can use this
     if (param.space === Sources.Twitter) {
       this.consumer = createConsumer(settings, this.configService.config);
+      this.bearer = createBearer(settings);
 
       return await this.spaceRequestService
         .requestToken(settings, { req, res, consumer: this.consumer })
@@ -192,16 +194,38 @@ export class SpaceController {
           }
         },
       );
+
+      // this.bearer.getOAuthAccessToken('', { grant_type: 'client_credentials' }, async (e, access_token, refresh_token, results) => {
+      //   console.log('bearer: ', access_token);
+      //   const token: Partial<TokenDto> = {
+      //     access_token,
+      //     oauth,
+      //     owner: settings.owner,
+      //     space: settings.space,
+      //     token_type: 'Bearer',
+      //     username: settings.owner + Date.now(),
+      //   };
+
+      //   await this.spaceRequestService.tokenService
+      //     .register(token as TokenDto, settings)
+      //     .then(token => {
+      //       redisClient.del(`${param.space}_${req.query.oauth_token}`);
+      //       res.status(HttpStatus.OK).send({ token });
+      //     })
+      //     .catch(error => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error }));
+      //   // redisClient.set(`bearer-token_${stream.settings.space}_${stream.settings.owner}`, access_token);
+      //   // return access_token;
+      // });
     });
   }
 
-  @Put('profile/:space')
-  @UseGuards(AuthGuard('jwt'))
-  async fetchProfile(@Param() param, @Query() query, @Response() res, @Req() req) {
-    let profile = await this.spaceRequest(param, query, res, req).then(({ body }) => body);
-    if (this.spacesV1.some(source => source === param.space)) {
-      profile = profile.data;
-    }
-    return await this.spaceService.updateProfile(param.space, req.user.username, profile).then(space => res.status(HttpStatus.OK).json(space));
-  }
+  // @Put('profile/:space')
+  // @UseGuards(AuthGuard('jwt'))
+  // async fetchProfile(@Param() param, @Query() query, @Response() res, @Req() req) {
+  //   let profile = await this.spaceRequest(param, query, res, req).then(({ body }) => body);
+  //   if (this.spacesV1.some(source => source === param.space)) {
+  //     profile = profile.data;
+  //   }
+  //   return await this.spaceService.updateProfile(param.space, req.user.username, profile).then(space => res.status(HttpStatus.OK).json(space));
+  // }
 }

@@ -7,6 +7,7 @@ export enum ResponseItemsPath {
 
 export enum TimestampDelta {
   instagram = 'created_time',
+  twitter = 'created_at',
   spotify = 'played_at',
   googleapi_activity = 'startTimeNanos,endTimeNanos',
   googleapi_gps = 'Time',
@@ -16,7 +17,9 @@ export enum TimestampFormat {
   instagram = 'x',
   googleapi = 'x',
   spotify = 'YYYY-MM-DDTHH:mm:ss.SSSZ',
+  twitter = 'ddd MMM DD HH:mm:ss Z YYYY',
 }
+// "Sat Jul 06 00:43:02 +0000 2019"
 
 export enum DropType {
   Activity = 'activity',

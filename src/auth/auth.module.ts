@@ -7,7 +7,6 @@ import { LoggerService } from '../shared/services/logger.service';
 import { mongoDatabaseProviders } from '../shared/repository/providers/mongo.database.provider';
 import { userModelMongoDbProvider } from '../shared/repository/providers/mongo.user.provider';
 import { UserService } from '../user/user.service';
-import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { LocalStrategy } from './passport/local.strategy';
 import { JwtStrategy } from './passport/jwt.strategy';

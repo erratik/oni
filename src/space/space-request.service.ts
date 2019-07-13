@@ -8,17 +8,25 @@ import { TokenService } from '../token/token.service';
 import { ConfigService } from '../config/config.service';
 import { QueryRequestSources as SpacesV1, DataMethod } from './space.constants';
 import { Sources } from '../app.constants';
-import { composeUrl, buildConnectParams } from '../shared/helpers/request.helpers';
-import { DropType } from '../drop/drop.constants';
+import { composeUrl, buildConnectParams, createConsumer, createBearer } from '../shared/helpers/request.helpers';
+import { DropType, ResponseItemsPath } from '../drop/drop.constants';
 import { IToken } from '../token/interfaces/tokens.schema';
 import redisClient from '../shared/redis.client';
+import { DatasetService } from '../shared/services/dataset.service';
+import { IDropItem } from '../drop/interfaces/drop-item.schema';
 
 @Injectable()
 export class SpaceRequestService {
   public spacesV1: string[] = [];
   public consumer: oauth.OAuth = null;
+  public bearer: oauth.OAuth2 = null;
 
-  public constructor(public logger: LoggerService, public tokenService: TokenService, private readonly configService: ConfigService) {
+  public constructor(
+    public logger: LoggerService,
+    public tokenService: TokenService,
+    private readonly configService: ConfigService,
+    private readonly datasetService: DatasetService,
+  ) {
     for (const n in SpacesV1) {
       this.spacesV1.push(SpacesV1[n]);
     }
@@ -59,25 +67,50 @@ export class SpaceRequestService {
     return hasError ? { ok: !hasError, error: response } : response;
   }
 
+  public async getSignedData(stream: any): Promise<any> {
+    // const Authorization = `Bearer ${stream.settings.authorization.info.access_token}`;
+    const { endpoint, request, params, cursors } = stream.dropset;
+    const { oauthAccessToken, oauthAccessTokenSecret } = stream.settings.authorization.info.oauth;
+    const a = {};
+    const max = cursors.find((val, key) => val[params.cursor.after] === '0') ? null : cursors.reduceRight((obj, item) => item, {});
+    // const max = cursors.reduce((obj, item) => item, {});
+    const url = `${stream.settings.baseUrl}${composeUrl(endpoint, { ...request, ...max })}`;
+    this.consumer = createConsumer(stream.settings, this.configService.config);
+
+    return this.consumer.get(url, oauthAccessToken, oauthAccessTokenSecret, (error, data, response) => {
+      if (error) {
+        debugger;
+        // res.redirect('/sessions/connect');
+        // res.send("Error getting twitter screen name : " + util.inspect(error), 500);
+      } else {
+        const items: any[] = this.datasetService.convertDrops(stream.dropset, JSON.parse(data));
+        stream.done(items);
+      }
+    });
+  }
+
   public async fetchHandler(settings: ISettings, stream: any) {
     let receivedData = null;
     const query = stream.query;
     const body = stream.body;
-
-    if (!!this.consumer) {
-      receivedData = this.makeOAuthRequest(stream);
-      return this.sendResponse(receivedData, stream);
-    }
-
     const suffix = query.type || DropType.Default;
-    const url = query.endpoint && query.endpoint.includes('https://') ? query.endpoint : settings.baseUrl + (query.endpoint || '');
+    
+    const url = query.url && query.url.includes('https://') ? query.url : settings.baseUrl + (query.url || '');
 
-    // todo: make this into a stream object
-    if (this.hasValidToken(settings, url, stream.res)) {
-      receivedData = this.getAuthenticatedData(settings, { url, body, suffix });
-      return this.sendResponse(receivedData, stream);
+    const { endpoint, request, params, cursors } = stream.query;
+
+    if (settings.space !== 'twitter' && this.hasValidToken(settings, url, stream.res)) {
+      receivedData = await this.getAuthenticatedData(settings, { url, body, suffix });
+      const items: any[] = receivedData.body[params.responsePath] || [];
+      const drops = this.datasetService.convertDrops(query, items) as IDropItem[];
+      return stream.done(drops);
     }
-    debugger;
+
+    if (settings.space === 'twitter') {
+      this.getSignedData({ ...stream, settings, dropset: query });
+      return { status: 200, space: settings.space };
+    }
+
     // ! this is why we stop after renewing tokens... ?
   }
 
@@ -161,14 +194,14 @@ export class SpaceRequestService {
     return isTokenExpired;
   }
 
-  private async sendResponse(receivedData: any, stream: any) {
-    const res = stream.res;
-    return stream.consumed
-      ? await receivedData.then(({ body }) => body).catch((err: any) => err)
-      : await receivedData
-          .then(({ body }) => (!res ? body : res.status(HttpStatus.OK).json(body)))
-          .catch((err: any) => (!res ? err : res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(err)));
-  }
+  // private async sendResponse(receivedData: any) {
+  //   return await receivedData
+  //     .then(response => {
+  //       debugger;
+  //       return response.body;
+  //     })
+  //     .catch((err: any) => err);
+  // }
 
   // todo: move this to oauth module
   private async getOAuthRequestToken(settings: ISettings, stream: any): Promise<any> {
@@ -193,29 +226,5 @@ export class SpaceRequestService {
       console.log(`${settings.baseUrl}/oauth/authenticate?oauth_token=${stream.req.session.oauthRequestToken}`);
       res.redirect(HttpStatus.TEMPORARY_REDIRECT, `${settings.baseUrl}/oauth/authenticate?oauth_token=${stream.req.session.oauthRequestToken}`);
     });
-  }
-
-  private async makeOAuthRequest(stream: any) {
-    const res = stream.res;
-    const req = stream.req;
-
-    return !!this.consumer
-      ? this.consumer.get(
-          'http://api.twitter.com/me/user_timeline.json',
-          req.session.oauthAccessToken,
-          req.session.oauthAccessTokenSecret,
-          (error: any, data: string) => {
-            if (error) {
-              debugger;
-              return res.status(HttpStatus.UNAUTHORIZED).send({ error });
-            }
-            {
-              debugger;
-              const parsedData = JSON.parse(data);
-              return res.send(`You are signed in: ${parsedData.screen_name}`);
-            }
-          },
-        )
-      : res.send({ status: 'Not signed in' });
   }
 }

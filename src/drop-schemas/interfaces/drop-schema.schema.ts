@@ -15,17 +15,17 @@ const DropKeySchema = new Schema(
       ref: 'Attributes',
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const DropSchema = new Schema(
   {
-    type: { type: String, required: true },
+    type: { type: String, default: 'default' },
     owner: { type: String, required: true },
     space: { type: String, required: true },
     keyMap: [DropKeySchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export interface IDropKey extends Document {

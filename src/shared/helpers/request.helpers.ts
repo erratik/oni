@@ -54,3 +54,6 @@ export const createConsumer = (settings: ISettings, config: Partial<IConfig>): o
     'HMAC-SHA1',
   );
 };
+export const createBearer = (settings: ISettings): oauth.OAuth2 => {
+  return new oauth.OAuth2(settings.credentials.clientId, settings.credentials.clientSecret, `${settings.baseUrl}/`, null, 'oauth2/token', null);
+};

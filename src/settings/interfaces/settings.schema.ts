@@ -31,7 +31,7 @@ const SettingsSchema = new Schema(
     owner: { type: String },
     authorization: { type: AuthorizationSchema },
     credentials: { type: CredentialsSchema },
-    cron: { type: Schema.Types.Mixed },
+    cron: { type: Schema.Types.Mixed, default: '* */1 * * *' },
   },
   { timestamps: true },
 );

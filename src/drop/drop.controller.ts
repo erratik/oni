@@ -41,13 +41,13 @@ export class DropController {
             that
               .fetchDrops({ space: dropSet.space }, {}, spaceSettings, null, null, dropSet.type)
               .then(data => {
-                if (!!data.stats && !!data.stats.addedDrops) {
-                  console.log(`⏲  Schedule ran for ${dropSet.space}_${dropSet.type}`);
+                // if (!!data.stats && !!data.stats.addedDrops) {
+                //   console.log(`⏲  Schedule ran for ${dropSet.space}_${dropSet.type}`);
 
-                  data.stats.addedDrops = data.stats.addedDrops.length;
-                }
-                console.log(data.stats);
-                console.log(`⏲  Next run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
+                //   data.stats.addedDrops = data.stats.addedDrops.length;
+                // }
+                // console.log(data.stats);
+                console.log(`⏲  Next ${dropSet.space} run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
               })
               .catch(error => console.log(error));
           });
@@ -133,7 +133,9 @@ export class DropController {
     if (param.space === 'all') {
       delete param.space;
     }
+
     query = Object.assign(query, param);
+    query.owner = req.user.username;
     return await this.dropService.getDropSet(query).then(dropSet => {
       if (!dropSet) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
@@ -149,30 +151,24 @@ export class DropController {
   @UseGuards(AuthGuard('jwt'))
   async updateDropSet(@Param() param, @Req() req, @Res() res, @Body() dropSetDto: DropSetDto) {
     const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
-    return await this.dropService.upsertDropSet(param.space, settings.owner, dropSetDto).then(dropSet => {
-      if (!dropSet) {
-        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `No drop set for ${req.user.username}`,
-        });
-      } else {
-        return res.status(HttpStatus.OK).json(dropSet);
-      }
-    });
+    return await this.dropService
+      .upsertDropSet(param.space, settings.owner, dropSetDto)
+      .then(dropSet => res.status(HttpStatus.OK).json(dropSet))
+      .catch(error => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error, message: `[DropController] No drop set for ${req.user.username}` }));
   }
 
   @Post(':space/set')
   @UseGuards(AuthGuard('jwt'))
   async addDropSet(@Param() param, @Req() req, @Res() res, @Body() dropSetDto: DropSetDto) {
     const settings: ISettings = req.user.settings.find(({ space }) => space === param.space);
-    return await this.dropService.createDropSet(param.space, settings.owner, dropSetDto).then(dropSet => {
-      if (!dropSet || dropSet.errors) {
-        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-          message: `Error creating ${param.space} drop set for  ${req.user.username}`,
-        });
-      } else {
-        return res.status(HttpStatus.OK).json(dropSet);
-      }
-    });
+    return await this.dropService
+      .createDropSet(param.space, settings.owner, dropSetDto)
+      .then(dropSet => res.status(HttpStatus.OK).json(dropSet))
+      .catch(error =>
+        res
+          .status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .json({ error, message: `[DropController] Error creating ${param.space} drop set for  ${req.user.username}` }),
+      );
   }
 
   // todo: extract to mini controller for fetching only
@@ -181,55 +177,12 @@ export class DropController {
   async fetchDrops(@Param() param, @Query() query, presets = {} as ISettings, @Req() req?, @Res() res?, @Query('type') type?) {
     query.consumed = true;
     type = type || DropType.Default;
-    let body = {};
+
     const settings: ISettings = !!req ? req.user.settings.find(({ space }) => space === param.space) : presets;
 
-    // todo: move this to spreadsheet drop functionality
-    let isSpreadSheetFetch: boolean = false;
-    let callbackRequest: any = false;
+    const dropSet = await this.dropService.getDropSet({ type, space: param.space, owner: settings.owner }).then((dropSet: IDropSet) => dropSet);
 
-    // todo: move this to navigation functionality for drops
-    let navigation = { after: null, before: null };
-
-    const dropSetRetrieved = await this.dropService.getDropSet({ type, space: param.space, owner: settings.owner }).then((dropSet: IDropSet) => {
-      // todo put this in a service
-      if (!dropSet) return false;
-
-      // dropCount = dropSet.drops.length;
-      query.endpoint = dropSet.endpoint;
-      body = dropSet.request || null;
-      isSpreadSheetFetch = query.endpoint.includes('spreadsheets');
-
-      // todo: move this to navigation functionality for drops
-      switch (param.space) {
-        case Sources.Spotify:
-          query.endpoint += `?after=${dropSet.navigation.after}`;
-          break;
-        case Sources.Instagram:
-          query.endpoint += `?min_id=${dropSet.navigation.after}`;
-          break;
-        case Sources.GoogleApi:
-          if (isSpreadSheetFetch) {
-            body = {};
-            callbackRequest = dropSet.request;
-            query.endpoint += `${dropSet.navigation.after}:${dropSet.navigation.before}`; // row ranges
-          } else {
-            body = {
-              ...body,
-              startTimeMillis: dropSet.navigation.after,
-              endTimeMillis: moment(dropSet.navigation.after)
-                .endOf('day')
-                .valueOf(),
-            };
-          }
-          break;
-        default:
-          break;
-      }
-      return dropSet;
-    });
-
-    if (!dropSetRetrieved) {
+    if (!dropSet) {
       try {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           message: `No ${type} drop set found for ${req.user.username}`,
@@ -240,91 +193,59 @@ export class DropController {
       }
     }
 
-    // fetch drops
-    let drops = await this.spaceRequestService
-      .fetchHandler(settings, { res, req, body, query })
-      .then(this.spaceRequestService.validateRequest)
-      .then(response => {
-        if (!!response.ok) {
-          try {
-            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-              message: `No ${type} drop set found for ${req.user.username}`,
-            });
-            return;
-          } catch (e) {
-            return e;
-          }
-        }
+    // todo: move this to spreadsheet drop functionality
+    const isSpreadSheetFetch: boolean = dropSet.endpoint.includes('spreadsheets');
 
-        // * getting the type for paths
-        const conversionKey = param.space + type === DropType.Default ? '' : `${param.space}_${type}`;
-        const responsePath = conversionKey;
-        let items: any[] = response[ResponseItemsPath[responsePath]] || [];
+    const finish = async (drops?: IDropItem[]) => {
+      // todo: move this to spreadsheet drop functionality
 
-        if (!items.length) {
-          try {
-            res.status(HttpStatus.NOT_MODIFIED).json({
-              message: `No items found for ${param.space} at path: ${ResponseItemsPath[responsePath]}`,
-            });
-            return;
-          } catch (e) {
-            return e;
-          }
-        }
+      let updatedDropSet: Object | IDropSet;
+      if (!!drops && drops.length) {
+        // ? map keys to dropSet, add all attributes from drops
+        const dropKeys = this.datasetService.mapDropKeys(param.space, drops);
+        this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys, navigation: dropSet.navigation }, type);
+        this.attributeService.addAttributes(this.datasetService.mapDropAttributes(param.space, drops, dropKeys.arrayKeys));
 
-        if (param.space === Sources.GoogleApi) {
-          // todo: move this to specifc google functions
-          if (type === DropType.GPS) {
-            items = this.datasetService.convertLocations(param.space, items);
-          } else {
-            items = this.datasetService.convertDatesToIso(
-              conversionKey,
-              Array.prototype.concat
-                .apply([], items.map(bucket => bucket.dataset.map(({ point }) => point)))[0]
-                .map(someDrop => ({ ...someDrop, value: someDrop.value[0] })),
-            );
-          }
-        } else {
-          items = this.datasetService.convertDatesToIso(conversionKey, items);
-        }
+        // ? save the drops and add them to their drop set
+        drops = this.datasetService.identifyDrops(param.space, settings.owner, drops, type);
+        updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, drops, type).then(dropSet => dropSet);
 
         // todo: move this to spreadsheet drop functionality
-        navigation = isSpreadSheetFetch ? dropSetRetrieved.navigation : this.datasetService.getCursors(conversionKey, items, dropSetRetrieved.navigation);
+        // todo: document how this works, callbacks for requests - housekeeping
+        if (isSpreadSheetFetch) {
+          // const callbackRequest: any = query.endpoint.includes('spreadsheets') ? dropSetRetrieved.request : null;
+          // body = { requests: [callbackRequest] };
+          query.endpoint = `${query.endpoint.split('/values')[0]}:batchUpdate`;
+          query.type = 'post';
+          await this.spaceRequestService
+            .fetchHandler(settings, { query, res, body: dropSet.body })
+            // .then(this.spaceRequestService.validateRequest)
+            .then(result => {
+              // if (!!result.ok && !result.ok) {
+              // debugger;
+              return !!res ? res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(result) : updatedDropSet;
+              // }
+            });
+        }
+      } else {
+        updatedDropSet = { message: `No new drops for ${param.space}.` };
+      }
 
-        return items as IDropItem[];
+      // return the saved drop set
+      return param.space === Sources.Twitter ? res.status(HttpStatus.OK).json(updatedDropSet) : updatedDropSet;
+    };
+
+    // fetch drops
+    await this.spaceRequestService
+      .fetchHandler(settings, { res, req, body: dropSet.body, query: { ...dropSet, ...query }, done: finish })
+      // .then(this.spaceRequestService.validateRequest)
+      .then(response => {
+        if (param.space !== Sources.Twitter) {
+          // debugger;
+          return !!res ? res.status(HttpStatus.OK).json(response) : response;
+        }
       });
 
-    let updatedDropSet: Object | IDropSet;
-    if (!!drops && drops.length) {
-      // ? map keys to dropSet, add all attributes from drops
-      const dropKeys = this.datasetService.mapDropKeys(param.space, drops);
-      this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys }, type);
-      this.attributeService.addAttributes(this.datasetService.mapDropAttributes(param.space, drops, dropKeys.arrayKeys));
-
-      // ? save the drops and add them to their drop set
-      drops = this.datasetService.identifyDrops(param.space, settings.owner, drops, type);
-      updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, drops, navigation, type).then(dropSet => dropSet);
-
-      // todo: move this to spreadsheet drop functionality
-      // todo: document how this works, callbacks for requests - housekeeping
-      if (isSpreadSheetFetch) {
-        body = { requests: [callbackRequest] };
-        query.endpoint = `${query.endpoint.split('/values')[0]}:batchUpdate`;
-        query.type = 'post';
-        await this.spaceRequestService
-          .fetchHandler(settings, { query, res, body })
-          .then(this.spaceRequestService.validateRequest)
-          .then(result => {
-            if (!!result.ok && !result.ok) {
-              return !!res ? res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(result) : updatedDropSet;
-            }
-          });
-      }
-    } else {
-      updatedDropSet = { message: `No new drops for ${param.space}.` };
-    }
-
-    // return the saved drop set
-    return !!res ? res.status(HttpStatus.OK).json(updatedDropSet) : updatedDropSet;
+    // finish(drops);
   }
 }

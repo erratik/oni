@@ -21,9 +21,10 @@ import { DatasetService } from '../shared/services/dataset.service';
 import { dropSchemaModelMongoDbProvider } from '../shared/repository/providers/mongo.drop-schema.provider';
 import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 import { LocationService } from '../space/services/location.service';
+import { DropSetHelper } from './drop-referential.service';
 
 @Module({
-  imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' }), HttpModule],
+  imports: [SharedServicesModule, PassportModule.register({ defaultStrategy: 'jwt' }), HttpModule, DropSetHelper],
   controllers: [DropController],
   providers: [
     ...mongoDatabaseProviders,
@@ -46,6 +47,7 @@ import { LocationService } from '../space/services/location.service';
     DropSchemaService,
     DatasetService,
     LocationService,
+    DropSetHelper,
   ],
   exports: [DropService],
 })

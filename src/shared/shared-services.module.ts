@@ -10,6 +10,7 @@ import { SettingsService } from '../settings/settings.service';
 import { mongoDatabaseProviders } from './repository/providers/mongo.database.provider';
 import { settingsModelMongoDbProvider } from './repository/providers/mongo.settings.provider';
 import { userModelMongoDbProvider } from './repository/providers/mongo.user.provider';
+import { DatasetService } from './services/dataset.service';
 
 @Module({
   imports: [HttpModule],
@@ -25,7 +26,8 @@ import { userModelMongoDbProvider } from './repository/providers/mongo.user.prov
     SettingsService,
     cacheProviders,
     RedisCacheService,
+    DatasetService,
   ],
-  exports: [ConfigService, LoggerService, SpaceRequestService, TokenService],
+  exports: [ConfigService, LoggerService, SpaceRequestService, TokenService, DatasetService],
 })
 export class SharedServicesModule {}

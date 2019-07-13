@@ -22,7 +22,7 @@ export class DropSchemaService implements IDropSchemaService {
     return this.dropSchemaModel
       .findOneAndUpdate(
         { space: dropSchema.space, owner: dropSchema.owner, type: dropSchema.type || DropType.Default },
-        { ...newDropSchema, $addToSet: { keyMap: dropSchema.keyMap } },
+        { ...newDropSchema, $addToSet: { keyMap: dropSchema.keyMap || [] } },
         { upsert: true, new: true, runValidators: true },
       )
       .then((dropSchema: IDropSchema) => ({ ...dropSchema.toObject() }))

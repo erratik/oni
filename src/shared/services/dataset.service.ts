@@ -10,22 +10,46 @@ import { flatten, camelize } from '../helpers/dataset.helpers';
 import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
-import { TimestampDelta, TimestampFormat, DropKeyType, LocationDataColumns, DropType, Numbers } from '../../drop/drop.constants';
+import { TimestampDelta, TimestampFormat, DropKeyType, LocationDataColumns, DropType, Numbers, ResponseItemsPath } from '../../drop/drop.constants';
 
 @Injectable()
 export class DatasetService {
   public constructor(public logger: LoggerService) {}
 
   // * PRE PROCESSING
-  public convertDatesToIso(conversionKey: string, drops: IDropItem[]): IDropItem[] {
-    const space = conversionKey.split('_')[0];
-    const fields = TimestampDelta[conversionKey].split(',');
+
+  public convertDrops(dropset, items) {
+    const { space, type, owner, name, params } = dropset;
+
+    if (space === Sources.GoogleApi) {
+      // todo: move this to specifc google functions
+      if (type === DropType.GPS) {
+        items = this.convertLocations(space, items);
+      } else {
+        items = this.convertDatesToIso(
+          type,
+          Array.prototype.concat
+            .apply([], items.map(bucket => bucket.dataset.map(({ point }) => point)))[0]
+            .map(someDrop => ({ ...someDrop, value: someDrop.value[0] })),
+        );
+      }
+    } else {
+      items = this.convertDatesToIso({ space, type, name, params }, items);
+    }
+    this.identifyDrops(space, owner, items, type);
+    return items as IDropItem[];
+  }
+
+  public convertDatesToIso(dropset: any, drops: IDropItem[]): IDropItem[] {
+    const { space } = dropset;
+    const { format, delta } = dropset.params.timestamp;
+    const fields = delta.split(',');
     const data = !!drops
       ? drops.map(drop => {
           fields.forEach((field: string) => {
             let timestamp: any = drop[field].length === 10 ? drop[field] * 1000 : drop[field];
             timestamp = space === Sources.GoogleApi ? timestamp.substring(0, 13) : timestamp;
-            drop[field] = moment(timestamp, TimestampFormat[space]).toISOString();
+            drop[field] = moment(timestamp, format).toISOString();
           });
           return drop;
         })
@@ -77,37 +101,6 @@ export class DatasetService {
     });
 
     return drops;
-  }
-
-  public getCursors(conversionKey: string, drops: IDropItem[], options?): any {
-    let moments: moment.Moment[];
-    const space = conversionKey.split('_')[0];
-    switch (space) {
-      case Sources.Instagram:
-        const suffix: string = drops[0].id.split('_')[1];
-        const ids: number[] = drops.map(({ id }) => id.split('_')[0] as number);
-        return { after: `${Math.max(...ids)}_${suffix}`, before: `${Math.min(...ids)}_${suffix}` };
-      // case Sources.GoogleApi:
-      // if (!!options) return { after: 1, before: options.dropCount };
-      default:
-        const timestampDelta = TimestampDelta[conversionKey].split(',')[0];
-        moments = drops.map(drop => moment(drop[timestampDelta]));
-        const { min, max } = { min: moment.min(moments), max: moment.max(moments) };
-        const cursors = conversionKey.includes('activity')
-          ? {
-              after: max
-                .add(1, TimeValues.Day)
-                .startOf(TimeValues.Day)
-                .valueOf(),
-              before: min
-                .add(1, TimeValues.Day)
-                .endOf(TimeValues.Day)
-                .valueOf(),
-            }
-          : { after: max.valueOf(), before: min.valueOf() };
-
-        return cursors;
-    }
   }
 
   // * CONSUMPTION
