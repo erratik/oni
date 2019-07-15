@@ -104,7 +104,8 @@ export class DatasetService {
   }
 
   // * CONSUMPTION
-  public buildDropWithSchema(space: string, drop: IDropItem | any, schema: IDropSchema): any {
+  public buildDropWithSchema(drop: IDropItem | any, schema: IDropSchema | any): any {
+    const { space } = drop;
     const dropified = {};
     schema.keyMap.forEach(dropKey => {
       const isArray: boolean = /(\|)([a-z_.]*)+/.test(dropKey.path);
@@ -115,9 +116,10 @@ export class DatasetService {
 
       if (isArray || dropKey.format === AttributeType.array) {
         const dropArray: any[] = dotProp.get(drop, dotPath);
+
         const arrayKey = dropKey.path.split('|').pop();
-        const values = dropArray.map(array => array[arrayKey]);
-        dropified[preKeyName].value = values.length > 1 ? dropArray.map(array => array[arrayKey]) : values; // dropArray.map(array => array[arrayKey])[0];
+        const values = !!dropArray ? dropArray.map(array => (array[arrayKey] ? array[arrayKey] : array)) : null;
+        dropified[preKeyName].value = values; // dropArray.map(array => array[arrayKey])[0];
       } else {
         dropified[preKeyName].value = dotProp.get(drop, dotPath);
       }

@@ -5,13 +5,13 @@ import { PassportLocalModel } from 'passport-local-mongoose';
 import { IDropService } from './interfaces/idrop.service';
 import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { IDropSchema } from '../drop-schemas/interfaces/drop-schema.schema';
 import { AttributeService } from '../attributes/attributes.service';
 import { DropSetDto } from './dto/drops.dto';
-import { DropType } from './drop.constants';
+import { DropType, DropKeyType, TimestampDelta } from './drop.constants';
 import { Projections } from '../shared/repository/projections.constants';
 import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 import { DropSchemaDto } from '../drop-schemas/dto/drop-schema.dto';
+import { searchTimeRange } from '../shared/helpers/query.helpers';
 
 @Injectable()
 export class DropService implements IDropService {
@@ -115,24 +115,28 @@ export class DropService implements IDropService {
 
   public async getDropSet(query: any): Promise<IDropSet> {
     this.logger.log('[DropService]', `Getting ${query.space} drop set for ${query.owner}`);
-    const dropset: IDropSet = await this.dropSetModel.findOne(query).populate('drops');
+    const dropset = await this.dropSetModel.findOne(query).populate('drops');
     dropset.cursors = this.dropSetModel.getCursors(dropset);
-    return dropset ? { ...dropset.depopulate('drops').toObject() } : null;
+    return dropset ? ({ ...dropset.depopulate('drops').toObject(), drops: dropset.drops.length, keys: dropset.keys.length } as IDropSet) : null;
   }
 
   public async getDropSets(query?: any): Promise<IDropSet[]> {
     this.logger.log('[DropService]', 'Getting drop sets');
-    const dropSets: IDropSet[] = await this.dropSetModel.find(query || {}).select(Projections.DropSets);
+    const dropSets = await this.dropSetModel
+      .find(query || {})
+      .select(Projections.DropSets)
+      .populate('drops');
     return dropSets
-      ? dropSets.map(dropset => {
-          dropset.populate('drops');
+      ? (dropSets.map(dropset => {
           const result = {
             ...dropset.toObject(),
             cursors: this.dropSetModel.getCursors(dropset),
           };
           dropset.depopulate('drops');
+          result.drops = result.drops ? result.drops.length : result.drops;
+          result.keys = result.keys ? result.keys.length : result.keys;
           return result;
-        })
+        }) as IDropSet[])
       : null;
   }
 
@@ -142,10 +146,32 @@ export class DropService implements IDropService {
     return dropItem ? { ...dropItem.toObject() } : null;
   }
 
-  public async getDrops(query: any, limit = 20, sorter = {}, projection = {}): Promise<IDropItem[]> {
+  public async getDrops(query: any, limit = 20, sorter = {}, options?): Promise<IDropItem[]> {
     this.logger.log('[DropService]', `Getting drop for ${query.owner}`);
+    const { search, owner } = query;
+    if (search) {
+      const { schemas } = options;
+      const timerange = searchTimeRange(search.timerange);
+      const timeranges = [];
+      schemas.forEach(({ keyMap }) => {
+        keyMap
+          .filter(({ type }) => type === DropKeyType.Standard)
+          .forEach(({ attribute }) => {
+            const timestamps = {};
+            if (attribute.standardName === TimestampDelta.default) {
+              timestamps[attribute.path.split('.')[0]] = timerange;
+              timeranges.push(timestamps);
+            }
+          });
+      });
+      const $and: any = [{ owner }];
+      if (search.space) $and.push({ space: query.space });
+      if (search.type) $and.push({ type: search.type });
+      query = { $and, $or: timeranges };
+    }
+
     const dropItems: IDropSet[] = await this.dropItemModel
-      .find(query, projection)
+      .find(query)
       .sort(sorter)
       .limit(limit);
     return dropItems ? dropItems.map(items => ({ ...items.toObject() })) : null;

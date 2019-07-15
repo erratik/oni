@@ -194,28 +194,6 @@ export class SpaceController {
           }
         },
       );
-
-      // this.bearer.getOAuthAccessToken('', { grant_type: 'client_credentials' }, async (e, access_token, refresh_token, results) => {
-      //   console.log('bearer: ', access_token);
-      //   const token: Partial<TokenDto> = {
-      //     access_token,
-      //     oauth,
-      //     owner: settings.owner,
-      //     space: settings.space,
-      //     token_type: 'Bearer',
-      //     username: settings.owner + Date.now(),
-      //   };
-
-      //   await this.spaceRequestService.tokenService
-      //     .register(token as TokenDto, settings)
-      //     .then(token => {
-      //       redisClient.del(`${param.space}_${req.query.oauth_token}`);
-      //       res.status(HttpStatus.OK).send({ token });
-      //     })
-      //     .catch(error => res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error }));
-      //   // redisClient.set(`bearer-token_${stream.settings.space}_${stream.settings.owner}`, access_token);
-      //   // return access_token;
-      // });
     });
   }
 

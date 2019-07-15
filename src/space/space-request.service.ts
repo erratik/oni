@@ -17,15 +17,14 @@ import { IDropItem } from '../drop/interfaces/drop-item.schema';
 
 @Injectable()
 export class SpaceRequestService {
-  public spacesV1: string[] = [];
-  public consumer: oauth.OAuth = null;
-  public bearer: oauth.OAuth2 = null;
+  private spacesV1: string[] = [];
+  private consumer: oauth.OAuth = null;
 
-  public constructor(
+  constructor(
     public logger: LoggerService,
     public tokenService: TokenService,
+    public datasetService: DatasetService,
     private readonly configService: ConfigService,
-    private readonly datasetService: DatasetService,
   ) {
     for (const n in SpacesV1) {
       this.spacesV1.push(SpacesV1[n]);
@@ -49,9 +48,8 @@ export class SpaceRequestService {
     let querifiedUrl = options.url.includes('https://') ? '' : settings.baseUrl;
     querifiedUrl += composeUrl(options.url, { access_token }).replace(/(^.*?\?.*?)(\?)/gm, '$1&');
 
-    return this.spacesV1.some(source => source !== settings.space)
-      ? superagent.get(options.url).set({ Authorization: `Bearer ${access_token}` })
-      : superagent.get(querifiedUrl);
+    const isBearerRequest = this.spacesV1.some(source => source !== settings.space);
+    return isBearerRequest ? superagent.get(options.url).set({ Authorization: `Bearer ${access_token}` }) : superagent.get(querifiedUrl);
   }
 
   public async getSignedData(stream: any): Promise<any> {

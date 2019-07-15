@@ -2,7 +2,7 @@ import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
 import { IDropItem } from './drop-item.schema';
 import { DropType } from '../drop.constants';
-import { Sources, TimeValues } from '../../app.constants';
+import { Sources, TimeFragments } from '../../app.constants';
 import moment = require('moment');
 import { composeUrl } from '../../shared/helpers/request.helpers';
 
@@ -22,11 +22,11 @@ const DropSetSchema = new Schema(
     keys: [{ type: String }],
     cron: { type: Schema.Types.Mixed, sparse: true },
     // stats: { type: Schema.Types.Mixed },
+    params: { type: Schema.Types.Mixed },
     navigation: { type: Schema.Types.Mixed },
     cursors: { type: Schema.Types.Mixed },
     type: { type: String, default: DropType.Default },
     request: { type: Schema.Types.Mixed },
-    params: { type: Schema.Types.Mixed },
   },
   {
     timestamps: true,
@@ -39,49 +39,50 @@ const DropSetSchema = new Schema(
   },
 );
 
-DropSetSchema.statics.getCursors = (dropset: IDropSet) => {
-  if (!dropset.drops) {
-    return this.navigation;
-  }
+DropSetSchema.statics.getCursors = dropset => {
   let moments: moment.Moment[];
-  const { space, drops, name, params } = dropset;
+  const { space, name, params } = dropset;
+  let { drops } = dropset;
 
   let ids: number[] = [];
   let cursors = null;
   const timestampDelta = params.timestamp.delta.split(',')[0];
+
+  drops = drops.map(drop => drop.toObject());
+  if (dropset.endpoint.includes('spreadsheets')) {
+    drops = drops.reverse();
+  }
   moments = drops
     .reverse()
     .slice(0, params.limit || 20)
-    .map(drop => moment(drop.toObject()[timestampDelta]));
+    .map(drop => moment(drop[timestampDelta]));
   const { min, max } = { min: moment.min(moments), max: moment.max(moments) };
 
   switch (space) {
     case Sources.Instagram:
-      const userid: string = drops[0].toObject().id.split('_')[1];
-      ids = drops.map(drop => drop.toObject().id.split('_')[0]);
+      const userid: string = drops[0].id.split('_')[1];
+      ids = drops.map(drop => drop.id.split('_')[0]);
       cursors = { after: `${Math.max(...ids)}_${userid}`, before: `${Math.min(...ids)}_${userid}` };
       break;
     case Sources.Twitter:
-      ids = drops.length ? drops.map(drop => drop.toObject().id_str) : [0, 12345];
+      ids = drops.length ? drops.map(drop => drop.id_str) : [0, 12345];
       cursors = { after: `${Math.max(...ids)}`, before: `${Math.min(...ids)}` };
       break;
     default:
       cursors = name.includes('activity')
         ? {
             after: max
-              .add(1, TimeValues.Day)
-              .startOf(TimeValues.Day)
+              .add(1, TimeFragments.Day)
+              .startOf(TimeFragments.Day)
               .valueOf(),
-            before: min
-              .add(1, TimeValues.Day)
-              .endOf(TimeValues.Day)
-              .valueOf(),
+            before: max.endOf(TimeFragments.Day).valueOf(),
           }
         : { after: max.valueOf(), before: min.valueOf() };
   }
 
-  // todo: change navigation object to min and max
+  dropset.depopulate('drops');
 
+  // todo: change navigation object to min and max
   if (params.cursor.after === 'after') {
     return cursors;
   }
@@ -120,6 +121,12 @@ DropSetSchema.virtual('url').get(function () {
     case Sources.Twitter:
       const { since_id } = this.cursors || this.navigation;
       endpoint = composeUrl(endpoint, { since_id, ...this.request });
+      break;
+    case Sources.GoogleApi:
+      if (this.type === DropType.Location) {
+        endpoint += `A1:AAH${this.params.limit + 1}?majorDimension=ROWS`;
+        this.set('request.requests.0.deleteDimension.range.endIndex', this.params.limit);
+      }
       break;
     default:
       break;
@@ -165,6 +172,7 @@ export interface IDropSet extends Document {
   body: any;
   navigation: any;
   cursors: any;
+  stats: any;
   cron?: any;
   drops?: IDropItem[];
   keys?: string[];

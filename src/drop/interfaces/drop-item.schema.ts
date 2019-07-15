@@ -7,6 +7,7 @@ const DropItemSchema = new Schema({}, { timestamps: true, strict: false });
 export interface IDropItem extends Document {
   owner: string;
   space: string;
+  type?: string;
   attribute?: IAttribute;
 }
 

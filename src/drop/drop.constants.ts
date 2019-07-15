@@ -4,6 +4,7 @@ export enum TimestampDelta {
   spotify = 'played_at',
   googleapi_activity = 'startTimeNanos,endTimeNanos',
   googleapi_location = 'Time',
+  default = 'timestamp',
 }
 
 export enum DropType {

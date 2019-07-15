@@ -37,5 +37,7 @@ export namespace Projections {
     owner: 1,
     type: 1,
     cron: 1,
+    drops: 1,
+    params: 1,
   };
 }

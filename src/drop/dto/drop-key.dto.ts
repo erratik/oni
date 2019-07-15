@@ -11,7 +11,7 @@ export class DropKeyDto {
   format: string;
 
   @ApiModelProperty()
-  enabled: boolean;
+  enabled?: boolean;
 
   @ApiModelProperty()
   displayName: boolean;

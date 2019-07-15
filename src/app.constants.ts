@@ -31,7 +31,7 @@ export enum InjectionTokens {
   DropSchemaModel = 'DropSchemaModelToken',
 }
 
-export enum TimeValues {
+export enum TimeFragments {
   Second = 'second',
   Minute = 'minute',
   Hour = 'hour',
@@ -39,4 +39,8 @@ export enum TimeValues {
   Week = 'week',
   Month = 'month',
   Year = 'year',
+}
+
+export enum TimeFormats {
+  documents = 'YYYY-MM-DDTHH:mm:ss.SSS',
 }

@@ -8,5 +8,5 @@ export enum DataMethod {
   spotify_default = 'get',
   googleapi = 'post', // used for auth & token
   googleapi_activity = 'post',
-  googleapi_gps = 'get',
+  googleapi_location = 'get',
 }
