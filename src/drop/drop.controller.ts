@@ -7,7 +7,7 @@ import { ApiUseTags } from '@nestjs/swagger';
 import { ISettings } from '../settings/interfaces/settings.schema';
 import { SpaceRequestService } from '../space/space-request.service';
 import { IDropItem } from './interfaces/drop-item.schema';
-import { ResponseItemsPath, TimestampDelta, DropType } from './drop.constants';
+import { TimestampDelta, DropType } from './drop.constants';
 import { DatasetService } from '../shared/services/dataset.service';
 import { SettingsService } from '../settings/settings.service';
 import { AttributeService } from '../attributes/attributes.service';
@@ -193,13 +193,9 @@ export class DropController {
       }
     }
 
-    // todo: move this to spreadsheet drop functionality
-    const isSpreadSheetFetch: boolean = dropSet.endpoint.includes('spreadsheets');
-
-    const finish = async (drops?: IDropItem[]) => {
-      // todo: move this to spreadsheet drop functionality
-
+    const done = async (drops: IDropItem[], isCallback?: false) => {
       let updatedDropSet: Object | IDropSet;
+
       if (!!drops && drops.length) {
         // ? map keys to dropSet, add all attributes from drops
         const dropKeys = this.datasetService.mapDropKeys(param.space, drops);
@@ -212,20 +208,13 @@ export class DropController {
 
         // todo: move this to spreadsheet drop functionality
         // todo: document how this works, callbacks for requests - housekeeping
-        if (isSpreadSheetFetch) {
-          // const callbackRequest: any = query.endpoint.includes('spreadsheets') ? dropSetRetrieved.request : null;
-          // body = { requests: [callbackRequest] };
-          query.endpoint = `${query.endpoint.split('/values')[0]}:batchUpdate`;
+        if (dropSet.endpoint.includes('spreadsheets')) {
+          query.url = `${dropSet.endpoint.split('/values')[0]}:batchUpdate`;
           query.type = 'post';
+          query.consumed = false;
           await this.spaceRequestService
-            .fetchHandler(settings, { query, res, body: dropSet.body })
-            // .then(this.spaceRequestService.validateRequest)
-            .then(result => {
-              // if (!!result.ok && !result.ok) {
-              // debugger;
-              return !!res ? res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(result) : updatedDropSet;
-              // }
-            });
+            .fetchHandler(settings, { query, res, done, body: dropSet.body })
+            .then(() => updatedDropSet);
         }
       } else {
         updatedDropSet = { message: `No new drops for ${param.space}.` };
@@ -237,15 +226,12 @@ export class DropController {
 
     // fetch drops
     await this.spaceRequestService
-      .fetchHandler(settings, { res, req, body: dropSet.body, query: { ...dropSet, ...query }, done: finish })
-      // .then(this.spaceRequestService.validateRequest)
+      .fetchHandler(settings, { res, req, done, body: dropSet.body, query: { ...dropSet, ...query } })
       .then(response => {
         if (param.space !== Sources.Twitter) {
-          // debugger;
           return !!res ? res.status(HttpStatus.OK).json(response) : response;
         }
       });
 
-    // finish(drops);
   }
 }

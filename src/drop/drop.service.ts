@@ -12,8 +12,6 @@ import { DropType } from './drop.constants';
 import { Projections } from '../shared/repository/projections.constants';
 import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 import { DropSchemaDto } from '../drop-schemas/dto/drop-schema.dto';
-import { MongoError } from 'mongodb';
-import { DropSetHelper } from './drop-referential.service';
 
 @Injectable()
 export class DropService implements IDropService {
@@ -23,7 +21,6 @@ export class DropService implements IDropService {
     public logger: LoggerService,
     public attributeService: AttributeService,
     public schemaService: DropSchemaService,
-    public dropSetHelper: DropSetHelper,
   ) {}
 
   // ? Create & Update
@@ -88,7 +85,7 @@ export class DropService implements IDropService {
     this.logger.log('[DropService]', `Upserting ${space} ${type} drop set for ${owner}`);
     return this.dropSetModel
       .findOneAndUpdate({ space, owner, type }, update, { upsert: true, new: true, runValidators: true })
-      .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
+      .then((dropSet: IDropSet) => ({ ...dropSet.toJSON() }))
       .catch(error => {
         throw error;
       });
@@ -119,10 +116,8 @@ export class DropService implements IDropService {
   public async getDropSet(query: any): Promise<IDropSet> {
     this.logger.log('[DropService]', `Getting ${query.space} drop set for ${query.owner}`);
     const dropset: IDropSet = await this.dropSetModel.findOne(query).populate('drops');
-    const params = this.dropSetHelper[query.space];
-    dropset.cursors = this.dropSetModel.getCursors(dropset, params);
-    // dropset.set('url', composeEndpoint(dropset));
-    return dropset ? { ...dropset.depopulate('drops').toObject(), params } : null;
+    dropset.cursors = this.dropSetModel.getCursors(dropset);
+    return dropset ? { ...dropset.depopulate('drops').toObject() } : null;
   }
 
   public async getDropSets(query?: any): Promise<IDropSet[]> {
@@ -130,11 +125,10 @@ export class DropService implements IDropService {
     const dropSets: IDropSet[] = await this.dropSetModel.find(query || {}).select(Projections.DropSets);
     return dropSets
       ? dropSets.map(dropset => {
-          const params = this.dropSetHelper[dropset.space];
           dropset.populate('drops');
           const result = {
             ...dropset.toObject(),
-            cursors: this.dropSetModel.getCursors(dropset, params),
+            cursors: this.dropSetModel.getCursors(dropset),
           };
           dropset.depopulate('drops');
           return result;

@@ -4,13 +4,13 @@ import * as dotProp from 'dot-prop';
 import * as activityTypes from 'google-fit-activity-types';
 import { Injectable } from '@nestjs/common';
 import { LoggerService } from './logger.service';
-import { Sources, TimeValues } from '../../app.constants';
+import { Sources } from '../../app.constants';
 import { IDropItem } from '../../drop/interfaces/drop-item.schema';
 import { flatten, camelize } from '../helpers/dataset.helpers';
 import { AttributeType } from '../../attributes/attributes.constants';
 import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
-import { TimestampDelta, TimestampFormat, DropKeyType, LocationDataColumns, DropType, Numbers, ResponseItemsPath } from '../../drop/drop.constants';
+import { TimestampDelta, DropKeyType, LocationDataColumns, DropType } from '../../drop/drop.constants';
 
 @Injectable()
 export class DatasetService {
@@ -23,11 +23,11 @@ export class DatasetService {
 
     if (space === Sources.GoogleApi) {
       // todo: move this to specifc google functions
-      if (type === DropType.GPS) {
-        items = this.convertLocations(space, items);
+      if (type === DropType.Location) {
+        items = this.convertLocations(items);
       } else {
         items = this.convertDatesToIso(
-          type,
+          dropset,
           Array.prototype.concat
             .apply([], items.map(bucket => bucket.dataset.map(({ point }) => point)))[0]
             .map(someDrop => ({ ...someDrop, value: someDrop.value[0] })),
@@ -77,7 +77,7 @@ export class DatasetService {
       : null;
   }
 
-  public convertLocations(space: string, data: any): any {
+  public convertLocations(data: any): any {
     const keys = data[0];
     data.shift();
     const drops = [];
@@ -89,7 +89,7 @@ export class DatasetService {
     );
 
     data.forEach((row: any[]) => {
-      const values = { type: DropType.GPS };
+      const values = { type: DropType.Location };
       row.filter((cell, i) => {
         const isIncluded: boolean = dataColumns.has(keys[i]);
         if (isIncluded) {

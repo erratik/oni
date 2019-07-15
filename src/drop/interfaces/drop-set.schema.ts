@@ -4,6 +4,7 @@ import { IDropItem } from './drop-item.schema';
 import { DropType } from '../drop.constants';
 import { Sources, TimeValues } from '../../app.constants';
 import moment = require('moment');
+import { composeUrl } from '../../shared/helpers/request.helpers';
 
 const DropSetSchema = new Schema(
   {
@@ -25,64 +26,44 @@ const DropSetSchema = new Schema(
     cursors: { type: Schema.Types.Mixed },
     type: { type: String, default: DropType.Default },
     request: { type: Schema.Types.Mixed },
+    params: { type: Schema.Types.Mixed },
   },
   {
     timestamps: true,
     toObject: {
       virtuals: true,
     },
+    toJSON: {
+      virtuals: false,
+    },
   },
 );
 
-const composeEndpoint = dropset => {
-  let endpoint = dropset.endpoint;
-  const isSpreadSheetFetch = endpoint.includes('spreadsheets');
-  const { after, before } = dropset.navigation || { after: null, before: null };
-  // dropset.dropSetModel.schema.methods.getCursors();
-  switch (dropset.space) {
-    // case Sources.Spotify:
-    //   endpoint += `?after=${after}`;
-    //   break;
-    // case Sources.Instagram:
-    //   endpoint += `?min_id=${after}`;
-    //   break;
-    // case Sources.Twitter:
-    //   // this.populate('drops');
-    //   // debugger;
-    //   endpoint += `?since_id=${after}`;
-    //   break;
-    case Sources.GoogleApi:
-      if (isSpreadSheetFetch) {
-        endpoint += `${after}:${before}`; // row ranges
-      }
-      break;
-    default:
-      break;
+DropSetSchema.statics.getCursors = (dropset: IDropSet) => {
+  if (!dropset.drops) {
+    return this.navigation;
   }
-  return endpoint;
-};
-
-DropSetSchema.statics.getCursors = (dropset, params) => {
   let moments: moment.Moment[];
-  const { space, drops, name } = dropset;
+  const { space, drops, name, params } = dropset;
 
   let ids: number[] = [];
   let cursors = null;
-  const timestampDelta = params.timestamp.delta;
-  moments = !!drops && drops.length ? drops.map(drop => moment(drop[timestampDelta])) : [moment.now()];
+  const timestampDelta = params.timestamp.delta.split(',')[0];
+  moments = drops
+    .reverse()
+    .slice(0, params.limit || 20)
+    .map(drop => moment(drop.toObject()[timestampDelta]));
   const { min, max } = { min: moment.min(moments), max: moment.max(moments) };
 
   switch (space) {
     case Sources.Instagram:
-      const suffix: string = drops[0].id.split('_')[1];
+      const userid: string = drops[0].toObject().id.split('_')[1];
       ids = drops.map(drop => drop.toObject().id.split('_')[0]);
-      cursors = { after: `${Math.max(...ids)}_${suffix}`, before: `${Math.min(...ids)}_${suffix}` };
+      cursors = { after: `${Math.max(...ids)}_${userid}`, before: `${Math.min(...ids)}_${userid}` };
       break;
     case Sources.Twitter:
-      ids = drops.length ? drops.map(drop => drop.toObject().id_str) : [0];
+      ids = drops.length ? drops.map(drop => drop.toObject().id_str) : [0, 12345];
       cursors = { after: `${Math.max(...ids)}`, before: `${Math.min(...ids)}` };
-      // case Sources.GoogleApi:
-      // if (!!options) return { after: 1, before: options.dropCount };
       break;
     default:
       cursors = name.includes('activity')
@@ -99,20 +80,20 @@ DropSetSchema.statics.getCursors = (dropset, params) => {
         : { after: max.valueOf(), before: min.valueOf() };
   }
 
-  dropset.set('navigation', !drops ? { after: Date.now() } : cursors);
+  // todo: change navigation object to min and max
 
   if (params.cursor.after === 'after') {
     return cursors;
   }
 
-  const entries = Object.entries(params.cursor) as string[][];
-  cursors = entries.map(param => {
-    const entry = {};
-    entry[param[1]] = cursors[param[0]];
-    return entry;
+  const computedCursors = {};
+  (Object.entries(params.cursor) as string[][]).forEach(param => {
+    if (cursors[param[0]] !== '0') {
+      computedCursors[param[1]] = cursors[param[0]];
+    }
   });
 
-  return cursors;
+  return computedCursors;
 };
 
 DropSetSchema.virtual('name').get(function () {
@@ -120,7 +101,30 @@ DropSetSchema.virtual('name').get(function () {
 });
 
 DropSetSchema.virtual('url').get(function () {
-  return composeEndpoint(this);
+  let endpoint = this.endpoint;
+  if (!this.cursors) {
+    return endpoint;
+  }
+
+  // todo: confusing, should after field, not before, for spotify...
+  const { before } = this.cursors || this.navigation;
+
+  switch (this.space) {
+    case Sources.Spotify:
+      endpoint = composeUrl(endpoint, { after: before, ...this.request });
+      break;
+    case Sources.Instagram:
+      const { min_id } = this.cursors || this.navigation;
+      endpoint = composeUrl(endpoint, { min_id, ...this.request });
+      break;
+    case Sources.Twitter:
+      const { since_id } = this.cursors || this.navigation;
+      endpoint = composeUrl(endpoint, { since_id, ...this.request });
+      break;
+    default:
+      break;
+  }
+  return endpoint;
 });
 
 DropSetSchema.virtual('body').get(function () {
@@ -136,13 +140,9 @@ DropSetSchema.virtual('body').get(function () {
       if (!isSpreadSheetFetch) {
         body = {
           ...body,
-          startTimeMillis: this.navigation.after,
-          endTimeMillis: moment(this.navigation.after)
-            .endOf('day')
-            .valueOf(),
+          startTimeMillis: this.cursors.after,
+          endTimeMillis: this.cursors.before,
         };
-      } else {
-        body = { requests: [this.request] };
       }
       break;
     default:
@@ -161,7 +161,7 @@ export interface IDropSet extends Document {
   type: string;
   name: string;
   endpoint: string;
-  // request: any;
+  params: any;
   body: any;
   navigation: any;
   cursors: any;
