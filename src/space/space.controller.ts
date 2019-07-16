@@ -29,6 +29,7 @@ import { Sources } from '../app.constants';
 import { composeUrl, buildConnectParams, createConsumer, createBearer } from '../shared/helpers/request.helpers';
 import { TokenDto } from '../token/dto/token.dto';
 import redisClient from '../shared/redis.client';
+import { IDropSet } from '../drop/interfaces/drop-set.schema';
 
 @ApiUseTags('spaces')
 @Controller('v1/spaces')

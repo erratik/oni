@@ -16,6 +16,10 @@ import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 import { DropSetDto } from './dto/drops.dto';
 import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropSchema } from '../drop-schemas/interfaces/drop-schema.schema';
+import { StatsService } from '../stats/stats.service';
+import { IStatsEntry } from '../stats/interfaces/stats.schema';
+import { StatsSchemaDto } from '../stats/dto/stats.dto';
+import { sortDrops } from '../shared/helpers/query.helpers';
 
 @ApiUseTags('drops')
 @Controller('v1/drops')
@@ -23,33 +27,47 @@ export class DropController {
   public runSchedules = {};
   public settings: ISettings[];
   public dropsets: IDropSet[];
-  public stats = {};
+
   constructor(
     private readonly dropService: DropService,
     private readonly settingsService: SettingsService,
     private readonly dropSchemaService: DropSchemaService,
     private readonly datasetService: DatasetService,
     private readonly attributeService: AttributeService,
+    private readonly statsService: StatsService,
     private readonly spaceRequestService: SpaceRequestService,
   ) {
+    // tslint:disable-next-line: no-this-assignment
     const that = this;
     (async () => {
       const dropsSets: IDropSet[] = await this.dropService.getDropSets();
       this.dropsets = dropsSets;
       await that.settingsService.getSettings({}).then(settings => {
         dropsSets.forEach(dropset => {
-          that.stats[dropset.name] = {};
+          const { owner, type, space, cron } = dropset;
           const spaceSettings: ISettings = settings.find(({ space }) => space === dropset.space);
-          const crontab = dropset.cron || spaceSettings.cron;
-          console.log(`⏲  ${dropset.space} (${dropset.type}) crontab:`, crontab);
-          that.runSchedules[`${dropset.name}`] = schedule.scheduleJob(crontab, function () {
-            const { space, name, type } = dropset;
+          const crontab = cron || spaceSettings.cron;
+          console.log(`⏲  ${space} (${type}) crontab:`, crontab);
+          that.runSchedules[`${dropset.space}_${dropset.type}`] = schedule.scheduleJob(crontab, function () {
+            const { space, type } = dropset;
             that
-              .fetchDrops({ space, name }, {}, spaceSettings, null, null, type)
+              .fetchDrops({ space, type }, {}, spaceSettings, null, null, type)
               .then(data => {
-                console.log(`⏲  Next ${dropset.name} run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
+                console.log(`⏲  Next ${dropset.space} run will be at ${moment(this.nextInvocation(), 'llll').local(true)}`);
               })
-              .catch(error => console.log(error));
+              .catch(({ error }) => {
+                console.log(error);
+
+                that.statsService.upsertStats({
+                  owner: dropset.owner,
+                  space: dropset.space,
+                  type: dropset.type,
+                  inserted: { added: [] },
+                  error: { otherErrors: [error], duplicates: 0 },
+                  range: dropset.cursors,
+                  manual: false,
+                } as StatsSchemaDto);
+              });
           });
         });
       });
@@ -70,7 +88,7 @@ export class DropController {
       schemas = await this.dropSchemaService.getDropSchemas({ space, type, owner: req.user.username }).then(x => x);
     }
     return await this.dropService
-      .getDrops({ search: { ...search, space, type }, owner: req.user.username }, limit, sorter, { schemas, dropsets: this.dropsets })
+      .getDrops({ search: { ...search, space, type }, owner: req.user.username }, { schemas, dropsets: this.dropsets })
       .then(async drops => {
         if (!drops) {
           res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
@@ -83,7 +101,7 @@ export class DropController {
               return drop;
             })
             .map(drop => this.datasetService.buildDropWithSchema(drop, schemas.find(({ type, space }) => space === drop.space && type === drop.type)));
-          return res.status(HttpStatus.OK).json(drops);
+          return res.status(HttpStatus.OK).json(sortDrops(drops, 'timestamp'));
         }
       });
   }
@@ -129,7 +147,7 @@ export class DropController {
     const sorter = {};
     sorter[TimestampDelta[param.space]] = -1;
     limit = Number(limit);
-    return await this.dropService.getDrops({ space: param.space, owner: req.user.username }, limit, sorter).then(async drops => {
+    return await this.dropService.getDrops({ space: param.space, owner: req.user.username }).then(async drops => {
       if (!drops) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
           message: `No drop found with query: ${JSON.stringify(query)}`,
@@ -227,18 +245,27 @@ export class DropController {
     }
 
     const done = async (drops: IDropItem[]) => {
-      let updatedDropSet: IDropSet;
+      let updatedDropSet;
+      let stats = {
+        owner: dropset.owner,
+        space: dropset.space,
+        type: dropset.type,
+        inserted: { added: [] },
+        error: { otherErrors: [], duplicates: 0 },
+        range: dropset.cursors,
+        manual: !!res,
+      } as StatsSchemaDto;
 
       if (!!drops && drops.length) {
         // ? map keys to dropSet, add all attributes from drops
         const dropKeys = this.datasetService.mapDropKeys(param.space, drops);
-        this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys, navigation: dropset.cursors }, type);
+        this.dropService.upsertDropSet(param.space, settings.owner, { keys: dropKeys.mappedKeys }, type);
         this.attributeService.addAttributes(this.datasetService.mapDropAttributes(param.space, drops, dropKeys.arrayKeys));
 
         // ? save the drops and add them to their drop set
         drops = this.datasetService.identifyDrops(param.space, settings.owner, drops, type);
-        updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, drops, type).then(dropSet => dropSet);
-
+        updatedDropSet = await this.dropService.addDrops(param.space, settings.owner, { drops, type, manual: !!res }).then(dropSet => dropSet);
+        stats = updatedDropSet.stats;
         // todo: document how this works, callbacks for requests - housekeeping
         if (dropset.endpoint.includes('spreadsheets')) {
           query.url = `${dropset.endpoint.split('/values')[0]}:batchUpdate`;
@@ -248,8 +275,8 @@ export class DropController {
         }
       }
 
-      this.stats[dropset.name][Date.now()] = updatedDropSet.stats;
-      console.log(this.stats);
+      stats = await this.statsService.upsertStats({ ...stats, range: dropset.cursors }).then(x => x);
+      updatedDropSet = { ...updatedDropSet.dropset };
 
       // return the saved drop set
       return param.space === Sources.Twitter ? (!!res ? res.status(HttpStatus.OK).json(updatedDropSet) : updatedDropSet) : updatedDropSet;

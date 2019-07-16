@@ -21,7 +21,6 @@ const DropSetSchema = new Schema(
     endpoint: { type: String, required: true },
     keys: [{ type: String }],
     cron: { type: Schema.Types.Mixed, sparse: true },
-    // stats: { type: Schema.Types.Mixed },
     params: { type: Schema.Types.Mixed },
     navigation: { type: Schema.Types.Mixed },
     cursors: { type: Schema.Types.Mixed },
@@ -80,6 +79,8 @@ DropSetSchema.statics.getCursors = dropset => {
         : { after: max.valueOf(), before: min.valueOf() };
   }
 
+  dropset.set('navigation', { after: max, before: min });
+
   dropset.depopulate('drops');
 
   // todo: change navigation object to min and max
@@ -108,18 +109,18 @@ DropSetSchema.virtual('url').get(function () {
   }
 
   // todo: confusing, should after field, not before, for spotify...
-  const { before } = this.cursors || this.navigation;
+  const { before } = this.cursors;
 
   switch (this.space) {
     case Sources.Spotify:
       endpoint = composeUrl(endpoint, { after: before, ...this.request });
       break;
     case Sources.Instagram:
-      const { min_id } = this.cursors || this.navigation;
+      const { min_id } = this.cursors;
       endpoint = composeUrl(endpoint, { min_id, ...this.request });
       break;
     case Sources.Twitter:
-      const { since_id } = this.cursors || this.navigation;
+      const { since_id } = this.cursors;
       endpoint = composeUrl(endpoint, { since_id, ...this.request });
       break;
     case Sources.GoogleApi:
@@ -134,7 +135,7 @@ DropSetSchema.virtual('url').get(function () {
   return endpoint;
 });
 
-DropSetSchema.virtual('body').get(function () {
+DropSetSchema.virtual('body').get(() => {
   if (!this.request) {
     return null;
   }

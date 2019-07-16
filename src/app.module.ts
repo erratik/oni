@@ -23,6 +23,7 @@ import { TokenModule } from './token/token.module';
 import { DropModule } from './drop/drop.module';
 import { AttributeModule } from './attributes/attributes.module';
 import { DropSchemaModule } from './drop-schemas/drop-schema.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { DropSchemaModule } from './drop-schemas/drop-schema.module';
     AttributeModule,
     TokenModule,
     DropSchemaModule,
+    StatsModule,
   ],
   providers: [...mongoDatabaseProviders, ...userModelMongoDbProvider, UserService, LoggerService, ConfigService, AuthService],
 })

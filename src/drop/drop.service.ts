@@ -7,11 +7,12 @@ import { IDropSet } from './interfaces/drop-set.schema';
 import { IDropItem } from './interfaces/drop-item.schema';
 import { AttributeService } from '../attributes/attributes.service';
 import { DropSetDto } from './dto/drops.dto';
-import { DropType, DropKeyType, TimestampDelta } from './drop.constants';
+import { DropType } from './drop.constants';
 import { Projections } from '../shared/repository/projections.constants';
 import { DropSchemaService } from '../drop-schemas/drop-schema.service';
 import { DropSchemaDto } from '../drop-schemas/dto/drop-schema.dto';
-import { searchTimeRange } from '../shared/helpers/query.helpers';
+import { mongoQuerify } from '../shared/helpers/query.helpers';
+import { IStatsEntry } from '../stats/interfaces/stats.schema';
 
 @Injectable()
 export class DropService implements IDropService {
@@ -26,27 +27,31 @@ export class DropService implements IDropService {
   // ? Create & Update
   //                                                                                                      //
 
-  public async addDrops(space: string, owner: string, drops: IDropItem[], type = DropType.Default): Promise<IDropSet> {
+  public async addDrops(space: string, owner: string, params): Promise<IDropSet> {
+    const { drops, type, manual } = params;
     let hasOnlyDuplicates = false;
     let duplicates;
     let duplicateCount: number = 0;
-    let otherErrCount: number = 0;
+    let otherErrorCount: number = 0;
+    let writeErrors: any = [];
     const insert = await this.dropItemModel.collection.insert(drops).catch(e => {
       hasOnlyDuplicates = e.writeErrors ? e.writeErrors.length === drops.length : null;
 
       if (!hasOnlyDuplicates) {
         if (e.writeErrors) {
+          writeErrors = e.writeErrors.filter(({ code }) => code !== 11000);
           duplicates = e.writeErrors.filter(({ code }) => code === 11000).map(({ index }) => index);
           duplicateCount = duplicates.length;
-          otherErrCount = e.writeErrors.length - duplicateCount;
+          otherErrorCount = e.writeErrors.length - duplicateCount;
           this.logger.log('[DropService]', `Skipped ${duplicateCount} duplicates`);
-          if (otherErrCount) this.logger.warn('[DropService]', `There were ${otherErrCount} other errors  🙀`);
+          if (otherErrorCount) this.logger.warn('[DropService]', `There were ${otherErrorCount} other errors  🙀`);
         } else if (e.code === 11000) {
           duplicateCount = 1;
           duplicates = [e.index];
         }
+        const duplicateIds = e.result.getInsertedIds().filter(drop => duplicates.some(index => index === drop.index));
         const insertedIds = e.result.getInsertedIds().filter(drop => duplicates.every(index => index !== drop.index));
-        return { insertedIds, wasPartial: true };
+        return { duplicateIds, insertedIds, wasPartial: true };
       }
 
       this.logger.log('[DropService]', `No drops to add in ${space} dropset, all already exist`);
@@ -57,27 +62,34 @@ export class DropService implements IDropService {
     }
 
     const nbDropsAddings = !!insert.wasPartial ? insert.insertedIds.length : insert.insertedCount;
-    this.logger.log('[DropService]', `💧  Added (${nbDropsAddings - otherErrCount}) ${type} drops to ${space} schema for ${owner}`);
+    this.logger.log('[DropService]', `💧  Added (${nbDropsAddings - otherErrorCount}) ${type} drops to ${space} schema for ${owner}`);
     const addedDrops: string[] = !!insert.wasPartial
       ? insert.insertedIds.map(({ _id }) => _id.toString())
       : insert.insertedCount
       ? Object.keys(insert.insertedIds).map(x => insert.insertedIds[x].toString())
       : null;
-
+    //
     const updatedDropset = nbDropsAddings ? { space, $addToSet: { drops: addedDrops } } : {};
     return this.upsertDropSet(space, owner, updatedDropset, type)
-      .then((dropSet: IDropSet) => ({
-        dropset: { ...dropSet, drops: dropSet.drops.length, keys: dropSet.keys.length },
-        stats: {
-          hasOnlyDuplicates,
-          addedDrops,
-          duplicateCount,
-          otherErrCount,
-          type,
-          space,
+      .then((dropset: IDropSet) => {
+        const stats = {
           owner,
-        },
-      }))
+          space,
+          type,
+          manual,
+          inserted: { wasPartial: nbDropsAddings < drops.length },
+          error: { hasOnlyDuplicates, duplicates: duplicateCount, otherErrors: writeErrors },
+        } as IStatsEntry;
+
+        if (!!addedDrops) {
+          stats.inserted.added = addedDrops;
+        }
+
+        return {
+          stats,
+          dropset: { ...dropset, drops: dropset.drops.length, keys: dropset.keys.length },
+        };
+      })
       .catch(error => error.message);
   }
 
@@ -85,7 +97,7 @@ export class DropService implements IDropService {
     this.logger.log('[DropService]', `Upserting ${space} ${type} drop set for ${owner}`);
     return this.dropSetModel
       .findOneAndUpdate({ space, owner, type }, update, { upsert: true, new: true, runValidators: true })
-      .then((dropSet: IDropSet) => ({ ...dropSet.toJSON() }))
+      .then((dropSet: IDropSet) => ({ ...dropSet.toObject() }))
       .catch(error => {
         throw error;
       });
@@ -105,13 +117,6 @@ export class DropService implements IDropService {
   }
 
   // ? Retrieve
-
-  // todo: CRUD on drop schemas
-  // public async getDropSchema(query: any): Promise<IDropSchema> {
-  //   this.logger.log('[DropService]', `Fetching ${query.space} drop schema for  ${query.owner}`);
-  //   const dropSet: IDropSet = await this.dropSetModel.findOne(query).populate('schemas');
-  //   return dropSet ? { ...dropSet.toObject() } : null;
-  // }
 
   public async getDropSet(query: any): Promise<IDropSet> {
     this.logger.log('[DropService]', `Getting ${query.space} drop set for ${query.owner}`);
@@ -146,35 +151,12 @@ export class DropService implements IDropService {
     return dropItem ? { ...dropItem.toObject() } : null;
   }
 
-  public async getDrops(query: any, limit = 20, sorter = {}, options?): Promise<IDropItem[]> {
-    this.logger.log('[DropService]', `Getting drop for ${query.owner}`);
-    const { search, owner } = query;
-    if (search) {
-      const { schemas } = options;
-      const timerange = searchTimeRange(search.timerange);
-      const timeranges = [];
-      schemas.forEach(({ keyMap }) => {
-        keyMap
-          .filter(({ type }) => type === DropKeyType.Standard)
-          .forEach(({ attribute }) => {
-            const timestamps = {};
-            if (attribute.standardName === TimestampDelta.default) {
-              timestamps[attribute.path.split('.')[0]] = timerange;
-              timeranges.push(timestamps);
-            }
-          });
-      });
-      const $and: any = [{ owner }];
-      if (search.space) $and.push({ space: query.space });
-      if (search.type) $and.push({ type: search.type });
-      query = { $and, $or: timeranges };
-    }
+  public async getDrops(query: any, options?): Promise<IDropItem[]> {
+    this.logger.log('[DropService]', `Getting drop for ${JSON.stringify(query)}`);
+    const dropItems: IDropSet[] = await this.dropItemModel.find(mongoQuerify(query, options.schemas));
+    // .limit(limit);
 
-    const dropItems: IDropSet[] = await this.dropItemModel
-      .find(query)
-      .sort(sorter)
-      .limit(limit);
-    return dropItems ? dropItems.map(items => ({ ...items.toObject() })) : null;
+    return dropItems ? dropItems.map(item => ({ ...item.toObject() })) : null;
   }
 
   public async getDropsBySpace(query: any, sorter = {}, projection = {}): Promise<IDropItem[]> {

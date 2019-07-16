@@ -105,8 +105,8 @@ export class DatasetService {
 
   // * CONSUMPTION
   public buildDropWithSchema(drop: IDropItem | any, schema: IDropSchema | any): any {
-    const { space } = drop;
-    const dropified = {};
+    const { space, type } = drop;
+    const dropified = { space, type };
     schema.keyMap.forEach(dropKey => {
       const isArray: boolean = /(\|)([a-z_.]*)+/.test(dropKey.path);
       const dotPath = dropKey.path.replace(/(\|)([a-z_.]*)+/, '');

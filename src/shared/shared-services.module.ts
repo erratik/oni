@@ -11,6 +11,8 @@ import { mongoDatabaseProviders } from './repository/providers/mongo.database.pr
 import { settingsModelMongoDbProvider } from './repository/providers/mongo.settings.provider';
 import { userModelMongoDbProvider } from './repository/providers/mongo.user.provider';
 import { DatasetService } from './services/dataset.service';
+import { StatsService } from '../stats/stats.service';
+import { statsModelMongoDbProvider } from './repository/providers/mongo.stats.provider';
 
 @Module({
   imports: [HttpModule],
@@ -19,15 +21,17 @@ import { DatasetService } from './services/dataset.service';
     ...tokenModelMongoDbProvider,
     ...settingsModelMongoDbProvider,
     ...userModelMongoDbProvider,
+    ...statsModelMongoDbProvider,
     TokenService,
     ConfigService,
     LoggerService,
     SpaceRequestService,
+    StatsService,
     SettingsService,
     cacheProviders,
     RedisCacheService,
     DatasetService,
   ],
-  exports: [ConfigService, LoggerService, SpaceRequestService, TokenService, DatasetService],
+  exports: [ConfigService, LoggerService, SpaceRequestService, TokenService, StatsService, DatasetService],
 })
 export class SharedServicesModule {}

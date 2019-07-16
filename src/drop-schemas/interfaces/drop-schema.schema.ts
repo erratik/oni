@@ -1,6 +1,7 @@
 import { Schema, Document } from 'mongoose';
 import * as passportLocalMongoose from 'passport-local-mongoose';
 import { IDropSchema } from '../../drop-schemas/interfaces/drop-schema.schema';
+import { IAttribute } from '../../attributes/interfaces/attribute.schema';
 
 const DropKeySchema = new Schema(
   {
@@ -34,7 +35,7 @@ export interface IDropKey extends Document {
   path: string;
   displayName: string;
   enabled: boolean;
-  attribute?: string;
+  attribute?: string | IAttribute;
 }
 
 export interface IDropSchema extends Document {

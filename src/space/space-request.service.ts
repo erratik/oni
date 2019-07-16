@@ -82,6 +82,9 @@ export class SpaceRequestService {
         if (!query.consumed && query.type === 'post') {
           return stream.done([], true);
         }
+        if (!query.consumed) {
+          return stream.res.status(HttpStatus.OK).json(receivedData.body);
+        }
         const items: any[] = receivedData.body[params.responsePath] || [];
         const drops = this.datasetService.convertDrops(query, items) as IDropItem[];
         return stream.done(drops);

@@ -29,6 +29,7 @@ export enum InjectionTokens {
   DropSetModel = 'DropSetModelToken',
   AttributeModel = 'AttributeModelToken',
   DropSchemaModel = 'DropSchemaModelToken',
+  StatsModel = 'StatsModelToken',
 }
 
 export enum TimeFragments {
@@ -42,5 +43,5 @@ export enum TimeFragments {
 }
 
 export enum TimeFormats {
-  documents = 'YYYY-MM-DDTHH:mm:ss.SSS',
+  documents = 'YYYY-MM-DDTHH:mm:ss.SSSZ',
 }
