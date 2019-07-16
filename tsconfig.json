@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "paths": { "*": ["types/*"] },
+    "paths": {
+      "*": ["types/*"]
+    },
     "module": "commonjs",
     "declaration": false,
     "noImplicitAny": false,
@@ -13,7 +15,10 @@
     "sourceMap": true,
     "allowJs": true,
     "outDir": "./dist",
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "typeRoots": [
+      "node_modules/@types"
+    ],
   },
   "include": [
     "src/**/*"

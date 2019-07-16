@@ -47,7 +47,7 @@ async function bootstrap() {
       store: new redisStore({ host: process.env.REDIS_HOST, port: 6379, client: redisClient }),
       name: 'sid',
       resave: true,
-      // saveUninitialized: true,
+      saveUninitialized: false,
       secret: process.env.JWT_SECRET || 'mother-tucker',
     }),
   );

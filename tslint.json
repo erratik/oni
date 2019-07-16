@@ -9,6 +9,7 @@
     "ter-indent": false,
     "radix": false,
     "no-parameter-reassignment": false,
-    "comment-format": false
+    "comment-format": false,
+    "import-name": false
   }
 }

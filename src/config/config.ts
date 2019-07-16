@@ -32,5 +32,3 @@ export const config: IConfig = {
   jwtTokenDuration: 60 * 60 * 24, // 24h
   cacheDuration: 60 * 60, // 60min
 };
-
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
