@@ -33,7 +33,7 @@
         "connect-redis": "^3.4.1",
         "cookie-parser": "^1.4.4",
         "crypto-js": "^3.1.9-1",
-        "dot-prop": "^5.0.0",
+        "dot-prop": "^5.1.1",
         "express-flash": "^0.0.2",
         "express-session": "^1.16.2",
         "google-fit-activity-types": "^0.1.0",
